@@ -11,6 +11,7 @@ more-itertools==11.1.0
 platformdirs==4.11.11
 pycparser==3.0
 PyJWT==2.14.0
+python-dotenv==1.2.3
 requests==2.34.2
 requests-file==3.0.1
 requests-toolbelt==1.0.0
