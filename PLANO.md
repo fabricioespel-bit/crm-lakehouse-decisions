@@ -274,7 +274,9 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
     60–70% já decidida nas seções 2/4)
   - Timestamp do evento sempre anterior à criação do Lead correspondente (ordem cronológica
     importa pro stitching e pro modelo de atribuição first-touch da Fase 2c)
-- [ ] Escrever o script de geração do CRM (ex.: `scripts/generate_sample_data.py`).
+- [x] Escrever o script de geração do CRM (`scripts/generate_sample_data.py`, 21/set/2026) — Accounts →
+  Contacts → Leads → Opportunities → OpportunityContactRole via Bulk API. Rodado com volumes reais:
+  71 Accounts (65 + 6 duplicatas), 171 Contacts, 125 Leads, 200 Opportunities, sem erro.
 - [ ] Escrever o script da fonte de marketing, já com a carga direta pro `raw` do Snowflake (ex.:
   `scripts/generate_marketing_events.py`).
 - [ ] Rodar os scripts e validar os registros criados na UI do Salesforce e no dataset de marketing.
