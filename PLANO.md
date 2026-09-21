@@ -218,11 +218,18 @@ do Salesforce e uma segunda fonte sintética de eventos de marketing (UTM/click_
 probabilística), com camada de stitching/atribuição explícita no dbt (ver seções 2, 3 e 4). Decidido que a
 fonte de marketing entra no `raw` via script Python direto (não Airbyte) — ver seção 4.
 
+**21/set/2026:** Security token do Salesforce obtido e `git init` feito (repositório local, ainda sem
+remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: ambiente virtual Python +
+`simple-salesforce` + `Faker`.
+
 **Checklist para fechar a geração de dados e seguir para a Fase 1** (ponto de retomada entre sessões):
 
-- [ ] Obter security token do Salesforce (Setup → "Reset My Security Token").
-- [ ] `git init` do repositório + estrutura inicial de pastas (ex.: `scripts/`, `dbt/`,
-  `.github/workflows/`).
+- [x] Obter security token do Salesforce (21/set/2026) — nessa org, o item aparece traduzido como
+  "Redefinir minha chave de segurança" em vez de "token", em Configurações pessoais (não no Setup
+  admin) → "Minhas informações pessoais".
+- [x] `git init` do repositório + estrutura inicial de pastas (21/set/2026) — `scripts/`, `dbt/`,
+  `.github/workflows/`, `data/` criadas; branch renomeada para `main`; `.gitignore` cobrindo `.env`,
+  `venv/`, `__pycache__/`, artefatos do dbt; primeiro commit feito.
 - [ ] Criar ambiente virtual Python e instalar `simple-salesforce` + `Faker`.
 - [ ] Decidir volumes/distribuição de dados sintéticos (nº de Accounts, Contacts por Account, Opportunities
   por estágio do funil, Leads).
