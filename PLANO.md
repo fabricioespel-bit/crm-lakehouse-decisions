@@ -222,6 +222,22 @@ fonte de marketing entra no `raw` via script Python direto (não Airbyte) — ve
 remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: ambiente virtual Python +
 `simple-salesforce` + `Faker`.
 
+**21/set/2026 — obstáculos reais encontrados ao escrever `scripts/generate_sample_data.py`:**
+- **SOAP API login() desabilitado por padrão** nessa org (mudança recente de segurança da Salesforce,
+  retirada gradual do SOAP login até Summer '27) — o `simple-salesforce` usa SOAP por padrão pra
+  autenticar. Resolvido em duas partes: (1) Setup → "User Interface" → ativar o toggle
+  "Enable SOAP API login()"; (2) criar um **Permission Set** (não dá pra editar direto no Profile
+  "Administrador do sistema", por ser perfil padrão) com a permissão "Use Any API Auth" ("Usar qualquer
+  autorização de API") e atribuir ao usuário usado pelo script.
+- **`CreatedDate` não gravável via API por padrão** — necessário pra distribuir as datas de criação das
+  Opportunities ao longo de 18 meses (em vez de tudo "criado hoje"). Resolvido ativando o toggle "Enable
+  'Set Audit Fields upon Record Creation'..." em Setup → "User Interface", e então habilitando a
+  permissão "Set Audit Fields upon Record Creation" — nesse caso não funcionou via Permission Set no
+  perfil padrão, foi preciso **clonar/editar um Profile customizado** com essa permissão marcada.
+- **Bug próprio no script (não da Salesforce):** unidades de tempo do Faker em `date_between` — `M`
+  maiúsculo = meses, `m` minúsculo = minutos. Usar `"-18m"` gerava datas praticamente iguais a "hoje"
+  (janela de minutos, não meses). Corrigido para `"-18M"`/`"-1M"`.
+
 **Checklist para fechar a geração de dados e seguir para a Fase 1** (ponto de retomada entre sessões):
 
 - [x] Obter security token do Salesforce (21/set/2026) — nessa org, o item aparece traduzido como
