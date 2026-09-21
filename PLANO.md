@@ -175,9 +175,10 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
 - **Fase 0 — Setup:**
   - [x] Criar org Salesforce Developer Edition (18/set/2026) — confirmado vazia (0 registros em
     Accounts/Contacts/Opportunities/Leads), decisão de geração de dados via script tomada (ver seção 4).
-  - [ ] Gerar/complementar dados de exemplo no CRM, com sujeira proposital (checklist na seção 7).
-  - [ ] Desenhar e gerar a fonte sintética de eventos de marketing (volumes, taxa de propagação do
-    click_id) — checklist na seção 7.
+  - [x] Gerar/complementar dados de exemplo no CRM, com sujeira proposital (21/set/2026, checklist
+    detalhado na seção 7).
+  - [x] Desenhar e gerar a fonte sintética de eventos de marketing (21/set/2026, checklist detalhado
+    na seção 7).
   - [ ] Criar conta trial do Snowflake (warehouse X-Small, databases/schemas).
   - [ ] Decidir Airbyte self-hosted vs. Cloud na prática.
 - **Fase 1 — Ingestão:** conectar Airbyte (Salesforce → Snowflake) e o script Python de eventos de
@@ -308,7 +309,12 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
   `data/` por enquanto — é o artefato que vira `COPY INTO` no `raw` quando a Fase 1 começar. Rodado com
   volumes reais: 8 campanhas, 1740 cliques, 88 Leads associados a um clique, 58 com UTM propagado
   (~66%, perto do alvo de 65%).
-- [ ] Rodar os scripts e validar os registros criados na UI do Salesforce e no dataset de marketing.
-- [ ] Documentar os dados como sintéticos (ex.: `data/GENERATED_DATA.md`), no mesmo espírito de
-  transparência da camada sintética do `account-health-ml-service`.
+- [x] Rodar os scripts e validar os registros (21/set/2026) — validado via **Salesforce CLI**
+  (`sf data query`, instalado nessa sessão: `npm install --global @salesforce/cli`, autenticado com
+  `sf org login web`) em vez de só a UI. Taxas de corrupção conferidas contra os alvos configurados:
+  Industry sujo ~21% (alvo 15%, dentro da variação esperada), estágios de Opportunity batendo com os
+  pesos do funil, LeadSource nulo/"Other" ~22% (alvo 25%), Opportunities sem Contact Role ~19,5% (alvo
+  20%, quase exato), Leads com UTM propagado 59/125. CSVs de marketing conferidos (8 campanhas, 1740
+  cliques, estrutura correta).
+- [x] Documentar os dados como sintéticos (21/set/2026) — `data/GENERATED_DATA.md`.
 - [ ] Seguir para a Fase 1 (Airbyte → Snowflake `raw`).
