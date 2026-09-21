@@ -230,7 +230,8 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
 - [x] `git init` do repositório + estrutura inicial de pastas (21/set/2026) — `scripts/`, `dbt/`,
   `.github/workflows/`, `data/` criadas; branch renomeada para `main`; `.gitignore` cobrindo `.env`,
   `venv/`, `__pycache__/`, artefatos do dbt; primeiro commit feito.
-- [ ] Criar ambiente virtual Python e instalar `simple-salesforce` + `Faker`.
+- [x] Criar ambiente virtual Python e instalar `simple-salesforce` + `Faker` (21/set/2026) —
+  `simple-salesforce==1.12.10`, `Faker==40.39.0`, congelado em `requirements.txt`.
 - [ ] Decidir volumes/distribuição de dados sintéticos (nº de Accounts, Contacts por Account, Opportunities
   por estágio do funil, Leads).
 - [ ] Decidir taxas de "corrupção" dos dados do CRM (% duplicidade, % picklist inconsistente, % Contact
