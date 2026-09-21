@@ -255,8 +255,8 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
   `venv/`, `__pycache__/`, artefatos do dbt; primeiro commit feito.
 - [x] Criar ambiente virtual Python e instalar `simple-salesforce` + `Faker` (21/set/2026) —
   `simple-salesforce==1.12.10`, `Faker==40.39.0`, congelado em `requirements.txt`.
-- [ ] Decidir volumes/distribuição de dados sintéticos (nº de Accounts, Contacts por Account, Opportunities
-  por estágio do funil, Leads).
+- [x] Decidir volumes/distribuição de dados sintéticos (21/set/2026): ~65 Accounts, 1–4 Contacts por
+  Account (variável), ~200 Opportunities distribuídas de forma não-uniforme pelo funil, ~125 Leads.
 - [x] Decidir taxas de "corrupção" dos dados do CRM (21/set/2026):
   - Duplicidade de Accounts: ~8–10%
   - Picklist inconsistente (ex. `Industry`): ~15%
@@ -288,11 +288,26 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
     problema real de identity resolution). Se no futuro fizer sentido simular a Fonte A pro
     lado de custo do ROAS, entra como tabela separada (`campaign_performance`, grão
     `campaign_id + date`), decisão adiada.
+  - **Custo/investimento (21/set/2026, a pedido do Fabricio):** `campaign_stats` também carrega
+    `cost` por campanha, derivado de CPC por canal (google/meta/linkedin pagos, faixas diferentes de
+    custo por clique cada um; newsletter com custo zero, canal próprio) — necessário pro cálculo de
+    ROAS na Fase 2c. Custo zero em campanha orgânica é proposital, cria o caso real de divisão por
+    zero que o SQL/dbt vai precisar tratar explicitamente.
+  - **Destino dos dados (21/set/2026):** como a conta Snowflake ainda não existe, o script grava os
+    três datasets como CSV em `data/` (`marketing_campaigns.csv`, `marketing_click_events.csv`,
+    `marketing_campaign_stats.csv`) em vez de carregar direto no `raw` — artefato intermediário que a
+    Fase 1 vai `COPY INTO` quando o Snowflake existir.
 - [x] Escrever o script de geração do CRM (`scripts/generate_sample_data.py`, 21/set/2026) — Accounts →
   Contacts → Leads → Opportunities → OpportunityContactRole via Bulk API. Rodado com volumes reais:
   71 Accounts (65 + 6 duplicatas), 171 Contacts, 125 Leads, 200 Opportunities, sem erro.
-- [ ] Escrever o script da fonte de marketing, já com a carga direta pro `raw` do Snowflake (ex.:
-  `scripts/generate_marketing_events.py`).
+- [x] Escrever o script da fonte de marketing (`scripts/generate_marketing_events.py`, 21/set/2026) —
+  gera campanhas, cliques (com UTM) e estatísticas agregadas (impressões/cliques/custo por campanha);
+  seleciona ~70% dos Leads existentes como "vindos de marketing" e grava UTM de volta no Salesforce só
+  pra ~65% deles (perda de rastreamento). Como a conta Snowflake ainda não existe, os três datasets
+  (`marketing_campaigns.csv`, `marketing_click_events.csv`, `marketing_campaign_stats.csv`) ficam em
+  `data/` por enquanto — é o artefato que vira `COPY INTO` no `raw` quando a Fase 1 começar. Rodado com
+  volumes reais: 8 campanhas, 1740 cliques, 88 Leads associados a um clique, 58 com UTM propagado
+  (~66%, perto do alvo de 65%).
 - [ ] Rodar os scripts e validar os registros criados na UI do Salesforce e no dataset de marketing.
 - [ ] Documentar os dados como sintéticos (ex.: `data/GENERATED_DATA.md`), no mesmo espírito de
   transparência da camada sintética do `account-health-ml-service`.
