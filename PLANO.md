@@ -234,8 +234,15 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
   `simple-salesforce==1.12.10`, `Faker==40.39.0`, congelado em `requirements.txt`.
 - [ ] Decidir volumes/distribuição de dados sintéticos (nº de Accounts, Contacts por Account, Opportunities
   por estágio do funil, Leads).
-- [ ] Decidir taxas de "corrupção" dos dados do CRM (% duplicidade, % picklist inconsistente, % Contact
-  Role ausente, % LeadSource nulo/genérico, % datas ilógicas).
+- [x] Decidir taxas de "corrupção" dos dados do CRM (21/set/2026):
+  - Duplicidade de Accounts: ~8–10%
+  - Picklist inconsistente (ex. `Industry`): ~15%
+  - Opportunities sem Contact Role: ~20%
+  - `LeadSource` nulo ou genérico (`"Other"`): ~25% (taxa mais alta de propósito — é o que mais
+    pesa na atribuição de marketing da Fase 2b)
+  - Datas ilógicas (`CloseDate` < `CreatedDate`): ~5%
+  - Taxas ficam como parâmetros configuráveis no topo de `scripts/generate_sample_data.py`, não
+    hardcoded, e documentadas em `data/GENERATED_DATA.md`.
 - [ ] Desenhar a fonte sintética de marketing: campanhas, volume de impressões/cliques por campanha, taxa
   de propagação do `click_id`/UTM pro Lead (ex.: 60–70%).
 - [ ] Escrever o script de geração do CRM (ex.: `scripts/generate_sample_data.py`).
