@@ -179,7 +179,7 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     detalhado na seção 7).
   - [x] Desenhar e gerar a fonte sintética de eventos de marketing (21/set/2026, checklist detalhado
     na seção 7).
-  - [ ] Criar conta trial do Snowflake (warehouse X-Small, databases/schemas).
+  - [x] Criar conta trial do Snowflake (21/set/2026).
   - [ ] Decidir Airbyte self-hosted vs. Cloud na prática.
 - **Fase 1 — Ingestão:** conectar Airbyte (Salesforce → Snowflake) e o script Python de eventos de
   marketing (carga direta pro `raw`, ver seção 4); decidir e documentar estratégia de sincronização
