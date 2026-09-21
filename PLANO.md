@@ -237,6 +237,13 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
 - **Bug próprio no script (não da Salesforce):** unidades de tempo do Faker em `date_between` — `M`
   maiúsculo = meses, `m` minúsculo = minutos. Usar `"-18m"` gerava datas praticamente iguais a "hoje"
   (janela de minutos, não meses). Corrigido para `"-18M"`/`"-1M"`.
+- **Correção de registro:** a confirmação de "org vazia" feita em 18/set/2026 estava incompleta — na
+  prática a org tinha o dataset de demonstração padrão do Salesforce Developer Edition (13 Accounts tipo
+  "Edge Communications"/"GenePoint"/"United Oil & Gas", 26 Opportunities, 26 Cases, 20 Contacts, 22
+  Leads, 1 Entitlement), só descoberto ao consultar via SOQL em 21/set. Limpo por completo antes da
+  geração real (ordem que funcionou: Case → Opportunity → Account teve cascade nos Contacts restantes;
+  Lead à parte; a "Sample Account for Entitlements" só liberou depois de apagar o Entitlement vinculado).
+  Confirmado com `SELECT Id FROM <objeto>` retornando 0 nos cinco objetos.
 
 **Checklist para fechar a geração de dados e seguir para a Fase 1** (ponto de retomada entre sessões):
 
