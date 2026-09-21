@@ -269,11 +269,25 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
 - [x] Desenhar a fonte sintética de marketing (21/set/2026):
   - ~6–10 campanhas, misturando canais (Google Ads, Meta Ads, LinkedIn, e-mail marketing)
   - Volume maior no topo do funil: milhares de impressões, centenas de cliques por campanha
-    (CTR realista, ~1–3%); só cliques geram `click_id` (impressão sem clique não é rastreável)
-  - Taxa de propagação do `click_id`/UTM pro Lead fechada em **65%** (ponto médio da faixa
-    60–70% já decidida nas seções 2/4)
+    (CTR realista, ~1–3%)
+  - Taxa de propagação pro Lead fechada em **65%** (ponto médio da faixa 60–70% já decidida)
   - Timestamp do evento sempre anterior à criação do Lead correspondente (ordem cronológica
     importa pro stitching e pro modelo de atribuição first-touch da Fase 2c)
+  - **Refinado em 21/set/2026 (mecanismo de vínculo clique → Lead):** distinção entre duas
+    fontes de marketing reais que não devem ser confundidas — **Fonte A** (API de plataforma
+    de anúncio, ex. conector Airbyte do Google/Meta Ads) entrega dado **agregado por
+    campanha/dia** (impressões, cliques, custo — sem granularidade de clique individual, sem
+    `click_id` nem UTM por pessoa); **Fonte B** (tracking de primeira parte do próprio site,
+    tipo GA4/GTM/script próprio) é onde `click_id` e UTMs por pessoa existem de verdade. A
+    fonte sintética deste projeto modela a **Fonte B**, não a A (coerente com a decisão já
+    fechada de não simular um conector real). Mecanismo final: `click_id` existe só dentro do
+    dataset de marketing (uso interno, nunca gravado no Salesforce); os três campos UTM
+    (`UTM_Source__c`, `UTM_Medium__c`, `UTM_Campaign__c`, campos customizados no Lead) são o
+    que potencialmente chega no CRM via campo oculto de formulário, com a perda de 65% — join
+    da Fase 2b vira combinação dos três UTMs + proximidade de tempo (pode ser ambíguo, é o
+    problema real de identity resolution). Se no futuro fizer sentido simular a Fonte A pro
+    lado de custo do ROAS, entra como tabela separada (`campaign_performance`, grão
+    `campaign_id + date`), decisão adiada.
 - [x] Escrever o script de geração do CRM (`scripts/generate_sample_data.py`, 21/set/2026) — Accounts →
   Contacts → Leads → Opportunities → OpportunityContactRole via Bulk API. Rodado com volumes reais:
   71 Accounts (65 + 6 duplicatas), 171 Contacts, 125 Leads, 200 Opportunities, sem erro.
