@@ -243,8 +243,14 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
   - Datas ilógicas (`CloseDate` < `CreatedDate`): ~5%
   - Taxas ficam como parâmetros configuráveis no topo de `scripts/generate_sample_data.py`, não
     hardcoded, e documentadas em `data/GENERATED_DATA.md`.
-- [ ] Desenhar a fonte sintética de marketing: campanhas, volume de impressões/cliques por campanha, taxa
-  de propagação do `click_id`/UTM pro Lead (ex.: 60–70%).
+- [x] Desenhar a fonte sintética de marketing (21/set/2026):
+  - ~6–10 campanhas, misturando canais (Google Ads, Meta Ads, LinkedIn, e-mail marketing)
+  - Volume maior no topo do funil: milhares de impressões, centenas de cliques por campanha
+    (CTR realista, ~1–3%); só cliques geram `click_id` (impressão sem clique não é rastreável)
+  - Taxa de propagação do `click_id`/UTM pro Lead fechada em **65%** (ponto médio da faixa
+    60–70% já decidida nas seções 2/4)
+  - Timestamp do evento sempre anterior à criação do Lead correspondente (ordem cronológica
+    importa pro stitching e pro modelo de atribuição first-touch da Fase 2c)
 - [ ] Escrever o script de geração do CRM (ex.: `scripts/generate_sample_data.py`).
 - [ ] Escrever o script da fonte de marketing, já com a carga direta pro `raw` do Snowflake (ex.:
   `scripts/generate_marketing_events.py`).
