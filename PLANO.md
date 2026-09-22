@@ -227,7 +227,10 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     `staging` precisa filtrar `WHERE ISDELETED = FALSE` explicitamente — isso também é, coincidentemente,
     uma boa lição real de engenharia de dados (histórico completo no `raw`, estado "vivo" só na
     `staging`), não um problema a esconder.
-  - [ ] Rodar `COPY INTO` dos CSVs de marketing pro `raw` (dado já gerado em `data/`).
+  - [x] Rodar `COPY INTO` dos CSVs de marketing pro `raw` (22/set/2026) — 3 tabelas criadas em
+    `CRM_LAKEHOUSE.RAW` (`MARKETING_CAMPAIGNS`, `MARKETING_CLICK_EVENTS`, `MARKETING_CAMPAIGN_STATS`),
+    carga via stage interno (`snow stage copy` + `COPY INTO`), 8 campanhas + 1740 cliques + 8 linhas de
+    stats, sem erro. **Fase 1 completa.**
 - **Fase 2 — Transformação (dbt):** projeto dbt Core inicializado e versionado no Git.
   - **2a — staging:** tipagem, dedup, padronização de picklists, limpeza da sujeira proposital do CRM.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
