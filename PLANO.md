@@ -189,7 +189,9 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     usuário (`FABRICIOESPEL@GMAIL.COM`, via `DESCRIBE USER`), não o `NAME` (`fabricioespel`). Conexão
     `devsnowflake` funcionando com `snow connection test`. Instalado também o **Salesforce CLI** (`sf`,
     `npm install --global @salesforce/cli`) nessa sessão, usado pra validar os dados gerados via SOQL
-    em vez de só a UI.
+    em vez de só a UI. Warehouse `CRM_LAKEHOUSE_WH` (X-Small, `AUTO_SUSPEND=60`), database
+    `CRM_LAKEHOUSE` e os 4 schemas da arquitetura (`RAW`, `STAGING`, `INTERMEDIATE`, `MARTS`) criados
+    e configurados como default da conexão `devsnowflake`.
   - [ ] Decidir Airbyte self-hosted vs. Cloud na prática.
 - **Fase 1 — Ingestão:** conectar Airbyte (Salesforce → Snowflake) e o script Python de eventos de
   marketing (carga direta pro `raw`, ver seção 4); decidir e documentar estratégia de sincronização
