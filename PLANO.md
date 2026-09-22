@@ -193,9 +193,20 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   - [x] Decidir Airbyte self-hosted vs. Cloud na prática (22/set/2026) — **Airbyte Cloud** (free tier),
     confirmando o risco já identificado na seção 4: Docker Desktop não roda nessa máquina, mesmo
     problema já visto no `amigurumi-agent`. Fase 0 completa.
-- **Fase 1 — Ingestão:** conectar Airbyte (Salesforce → Snowflake) e o script Python de eventos de
-  marketing (carga direta pro `raw`, ver seção 4); decidir e documentar estratégia de sincronização
-  incremental (`SystemModstamp` no CRM, timestamp de evento no marketing).
+- **Fase 1 — Ingestão** (iniciada 22/set/2026, conta Airbyte Cloud já criada — trial de 30 dias conta a
+  partir da primeira sincronização): conectar Airbyte (Salesforce → Snowflake) e o script Python de
+  eventos de marketing (carga direta pro `raw`, ver seção 4); decidir e documentar estratégia de
+  sincronização incremental (`SystemModstamp` no CRM, timestamp de evento no marketing).
+  - [x] ~~Criar Connected App no Salesforce~~ — não necessário no Airbyte **Cloud** (diferente do
+    Open Source): o source Salesforce autentica via botão "Authenticate your account" (OAuth
+    automático, redireciona pro login do Salesforce), sem setup manual prévio (confirmado 22/set/2026
+    via docs.airbyte.com/integrations/sources/salesforce).
+  - [ ] Criar usuário/role dedicado no Snowflake pro Airbyte (destino).
+  - [ ] Configurar Source Salesforce no Airbyte Cloud.
+  - [ ] Configurar Destination Snowflake no Airbyte Cloud (schema `RAW`).
+  - [ ] Criar Connection (streams: Account, Contact, Lead, Opportunity, OpportunityContactRole;
+    sync incremental via `SystemModstamp`).
+  - [ ] Rodar `COPY INTO` dos CSVs de marketing pro `raw` (dado já gerado em `data/`).
 - **Fase 2 — Transformação (dbt):** projeto dbt Core inicializado e versionado no Git.
   - **2a — staging:** tipagem, dedup, padronização de picklists, limpeza da sujeira proposital do CRM.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
