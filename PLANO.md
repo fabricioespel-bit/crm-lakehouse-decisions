@@ -179,7 +179,17 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     detalhado na seção 7).
   - [x] Desenhar e gerar a fonte sintética de eventos de marketing (21/set/2026, checklist detalhado
     na seção 7).
-  - [x] Criar conta trial do Snowflake (21/set/2026).
+  - [x] Criar conta trial do Snowflake (21/set/2026) — conta criada via "Sign up with Google"
+    (AWS, região/edição escolhidas no fluxo "Snowflake CoCo"). **Obstáculos reais resolvidos (22/set):**
+    (1) login social via Google não é integração SAML de verdade — `--authenticator externalbrowser`
+    falha com erro de SAML; (2) autenticação de CLI/scripts exige **key-pair (RSA)**, já que não existe
+    senha tradicional numa conta criada via Google — gerada localmente (`~/.snowflake_keys/`, fora do
+    repo) e registrada via `ALTER USER ... SET RSA_PUBLIC_KEY=...` no Snowsight; (3) `snow connection
+    add` inicialmente deu "JWT token is invalid" porque o `--user` deve usar o **`LOGIN_NAME`** do
+    usuário (`FABRICIOESPEL@GMAIL.COM`, via `DESCRIBE USER`), não o `NAME` (`fabricioespel`). Conexão
+    `devsnowflake` funcionando com `snow connection test`. Instalado também o **Salesforce CLI** (`sf`,
+    `npm install --global @salesforce/cli`) nessa sessão, usado pra validar os dados gerados via SOQL
+    em vez de só a UI.
   - [ ] Decidir Airbyte self-hosted vs. Cloud na prática.
 - **Fase 1 — Ingestão:** conectar Airbyte (Salesforce → Snowflake) e o script Python de eventos de
   marketing (carga direta pro `raw`, ver seção 4); decidir e documentar estratégia de sincronização
