@@ -131,11 +131,9 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
 - **Ingestão via Airbyte**, não Fivetran — reaproveita a ferramenta já usada no
   `data-lake-engineering-decisions`, mantém o portfólio consistente em vez de introduzir mais uma
   ferramenta paga.
-  - **Risco identificado, ainda não testado:** Airbyte self-hosted normalmente roda via Docker, e o Docker
-    Desktop já se mostrou incompatível com esta máquina (macOS) em pelo menos um projeto anterior
-    (`amigurumi-agent`, que migrou pra Qdrant Cloud por causa disso). Se o mesmo acontecer aqui, o
-    fallback é **Airbyte Cloud** (tem free tier) — a confirmar na prática antes de assumir qual caminho
-    seguir.
+  - **Risco confirmado em 22/set/2026:** Docker Desktop não roda nessa máquina (mesmo problema já visto
+    no `amigurumi-agent`, que migrou pra Qdrant Cloud por causa disso) — Airbyte self-hosted descartado.
+    **Decisão fechada: Airbyte Cloud** (free tier).
 - **Transformação via dbt Core** (não dbt Cloud) — CLI, versionado no Git, sem depender de um serviço
   gerenciado pago além do necessário; reforça a demonstração de CI/CD próprio em vez de usar o CI
   embutido do dbt Cloud.
@@ -192,7 +190,9 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     em vez de só a UI. Warehouse `CRM_LAKEHOUSE_WH` (X-Small, `AUTO_SUSPEND=60`), database
     `CRM_LAKEHOUSE` e os 4 schemas da arquitetura (`RAW`, `STAGING`, `INTERMEDIATE`, `MARTS`) criados
     e configurados como default da conexão `devsnowflake`.
-  - [ ] Decidir Airbyte self-hosted vs. Cloud na prática.
+  - [x] Decidir Airbyte self-hosted vs. Cloud na prática (22/set/2026) — **Airbyte Cloud** (free tier),
+    confirmando o risco já identificado na seção 4: Docker Desktop não roda nessa máquina, mesmo
+    problema já visto no `amigurumi-agent`. Fase 0 completa.
 - **Fase 1 — Ingestão:** conectar Airbyte (Salesforce → Snowflake) e o script Python de eventos de
   marketing (carga direta pro `raw`, ver seção 4); decidir e documentar estratégia de sincronização
   incremental (`SystemModstamp` no CRM, timestamp de evento no marketing).
