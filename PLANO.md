@@ -207,10 +207,26 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     warehouse/database dedicados (diferente do script padrão da doc do Airbyte). `OWNERSHIP`
     concedida só no schema `RAW`, não no database inteiro — `STAGING`/`INTERMEDIATE`/`MARTS`
     ficam reservados pro role do dbt (Fase 2).
-  - [ ] Configurar Source Salesforce no Airbyte Cloud.
-  - [ ] Configurar Destination Snowflake no Airbyte Cloud (schema `RAW`).
-  - [ ] Criar Connection (streams: Account, Contact, Lead, Opportunity, OpportunityContactRole;
-    sync incremental via `SystemModstamp`).
+  - [x] Configurar Source Salesforce no Airbyte Cloud (22/set/2026) — OAuth via "Authenticate your
+    account", sem Connected App manual (confirmado antes).
+  - [x] Configurar Destination Snowflake no Airbyte Cloud (22/set/2026) — usuário `AIRBYTE_USER`,
+    key-pair, schema padrão `RAW`. **Obstáculo resolvido:** primeira tentativa de sync falhou com
+    "AIRBYTE_ROLE must have CREATE SCHEMA granted on DATABASE" — a `OWNERSHIP` no schema `RAW` não é
+    suficiente, o Airbyte também precisa criar schemas auxiliares próprios; resolvido com
+    `grant CREATE SCHEMA on database CRM_LAKEHOUSE to role AIRBYTE_ROLE`.
+  - [x] Criar Connection (22/set/2026) — streams Account, Contact, Lead, Opportunity,
+    OpportunityContactRole (removidos os defaults fora de escopo: OpportunityStage, Task, User);
+    sync incremental via `SystemModstamp`/`Id` (detectado automaticamente pelo Airbyte, sem ajuste
+    manual); sync mode "Manual" (não agendado, por causa do teto de tempo dos trials); namespace
+    "Destination default" (tudo em `RAW`). **Primeiro sync rodado com sucesso.**
+  - **Achado importante (22/set/2026):** o Airbyte sincroniza também registros **deletados** do
+    Salesforce (`ISDELETED = TRUE`, via `queryAll`/Lixeira) — por isso as contagens em `RAW` vieram
+    maiores que o esperado à primeira vista (ex. 90 Accounts em vez de 71). Conferido e explicado:
+    a diferença bate exatamente com os registros de teste/demo que foram deletados ao longo da sessão
+    (smoke tests do CRM + dataset padrão do Salesforce). **Implicação pra Fase 2a:** a camada
+    `staging` precisa filtrar `WHERE ISDELETED = FALSE` explicitamente — isso também é, coincidentemente,
+    uma boa lição real de engenharia de dados (histórico completo no `raw`, estado "vivo" só na
+    `staging`), não um problema a esconder.
   - [ ] Rodar `COPY INTO` dos CSVs de marketing pro `raw` (dado já gerado em `data/`).
 - **Fase 2 — Transformação (dbt):** projeto dbt Core inicializado e versionado no Git.
   - **2a — staging:** tipagem, dedup, padronização de picklists, limpeza da sujeira proposital do CRM.
