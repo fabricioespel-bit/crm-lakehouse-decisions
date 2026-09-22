@@ -201,7 +201,12 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     Open Source): o source Salesforce autentica via botão "Authenticate your account" (OAuth
     automático, redireciona pro login do Salesforce), sem setup manual prévio (confirmado 22/set/2026
     via docs.airbyte.com/integrations/sources/salesforce).
-  - [ ] Criar usuário/role dedicado no Snowflake pro Airbyte (destino).
+  - [x] Criar usuário/role dedicado no Snowflake pro Airbyte (22/set/2026) — `AIRBYTE_ROLE` +
+    `AIRBYTE_USER` (tipo `service`, key-pair própria em `~/.snowflake_keys/airbyte_rsa_key.p8`,
+    fora do repo), reaproveitando `CRM_LAKEHOUSE_WH`/`CRM_LAKEHOUSE` em vez de criar
+    warehouse/database dedicados (diferente do script padrão da doc do Airbyte). `OWNERSHIP`
+    concedida só no schema `RAW`, não no database inteiro — `STAGING`/`INTERMEDIATE`/`MARTS`
+    ficam reservados pro role do dbt (Fase 2).
   - [ ] Configurar Source Salesforce no Airbyte Cloud.
   - [ ] Configurar Destination Snowflake no Airbyte Cloud (schema `RAW`).
   - [ ] Criar Connection (streams: Account, Contact, Lead, Opportunity, OpportunityContactRole;
