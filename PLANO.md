@@ -250,6 +250,15 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   - [x] `dbt debug` — todos os checks passando, incluindo teste de conexão real via key-pair.
   - **2a — staging:** tipagem, dedup, padronização de picklists, limpeza da sujeira proposital do CRM
     (inclui filtro `WHERE ISDELETED = FALSE`, achado da Fase 1 — ver seção 7).
+    - [x] `stg_accounts` — versão básica (tipagem + filtro `WHERE ISDELETED = FALSE`, sem dedup/limpeza
+      de picklist ainda), com `source()` declarado em `_staging__sources.yml`. Rodado com
+      `dbt run --select stg_accounts`, 71 linhas em `STAGING.STG_ACCOUNTS` (bate com o total de
+      Accounts ativas). **Pendente:** testes (`_staging__models.yml` com `unique`/`not_null` em
+      `account_id`, `not_null` em `account_name`) já propostos, ainda não confirmados rodando
+      (`dbt test --select stg_accounts`) — próximo passo ao retomar.
+    - [ ] Adicionar padronização de picklist (`Industry`) e dedup das Accounts duplicadas propositais
+      em `stg_accounts`.
+    - [ ] `stg_contacts`, `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de

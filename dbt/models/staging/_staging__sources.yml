@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: salesforce
+    database: CRM_LAKEHOUSE
+    schema: RAW
+    tables:
+      - name: ACCOUNT
+      - name: CONTACT
+      - name: LEAD
+      - name: OPPORTUNITY
+      - name: OPPORTUNITYCONTACTROLE
