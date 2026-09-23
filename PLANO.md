@@ -231,8 +231,25 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     `CRM_LAKEHOUSE.RAW` (`MARKETING_CAMPAIGNS`, `MARKETING_CLICK_EVENTS`, `MARKETING_CAMPAIGN_STATS`),
     carga via stage interno (`snow stage copy` + `COPY INTO`), 8 campanhas + 1740 cliques + 8 linhas de
     stats, sem erro. **Fase 1 completa.**
-- **Fase 2 — Transformação (dbt):** projeto dbt Core inicializado e versionado no Git.
-  - **2a — staging:** tipagem, dedup, padronização de picklists, limpeza da sujeira proposital do CRM.
+- **Fase 2 — Transformação (dbt)** (iniciada 23/set/2026):
+  - [x] Instalar `dbt-core` + `dbt-snowflake` no venv (23/set/2026) — `dbt-core==1.12.5`,
+    `dbt-snowflake==1.12.1`. **Obstáculo resolvido:** erro de certificado SSL ao instalar
+    (`dbt-core-experimental-parser` baixa um binário direto do GitHub, fora do índice do PyPI) —
+    resolvido rodando o `pip install` com `SSL_CERT_FILE=$(python3 -m certifi)`. Aviso não-bloqueante:
+    conflito de versão de `click`/`protobuf` com o `snowflake-cli` (ambos os CLIs continuam funcionais).
+  - [x] Criar usuário/role dedicado no Snowflake pro dbt (23/set/2026) — `DBT_ROLE`/`DBT_USER`
+    (key-pair própria em `~/.snowflake_keys/dbt_rsa_key.p8`), leitura (`USAGE`+`SELECT`, incluindo
+    `FUTURE TABLES`) no schema `RAW`, `OWNERSHIP` em `STAGING`/`INTERMEDIATE`/`MARTS`.
+  - [x] Inicializar projeto dbt manualmente em `dbt/` (23/set/2026, sem `dbt init` interativo — prompts
+    multi-etapa não funcionam nesse terminal) — `dbt_project.yml`, estrutura de pastas
+    (`models/{staging,intermediate,marts}`, `seeds`, `tests`, `macros`), `~/.dbt/profiles.yml` (fora do
+    repo, key-pair do `DBT_USER`). **Decisão de design:** macro `generate_schema_name` sobrescrita
+    (`dbt/macros/generate_schema_name.sql`) pra usar o `+schema` de cada pasta diretamente, sem
+    concatenar com o schema do profile (comportamento padrão do dbt, pensado pra múltiplos devs
+    compartilhando conta — não se aplica aqui, projeto de uma pessoa só com schemas já fixados).
+  - [x] `dbt debug` — todos os checks passando, incluindo teste de conexão real via key-pair.
+  - **2a — staging:** tipagem, dedup, padronização de picklists, limpeza da sujeira proposital do CRM
+    (inclui filtro `WHERE ISDELETED = FALSE`, achado da Fase 1 — ver seção 7).
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
