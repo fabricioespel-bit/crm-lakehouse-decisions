@@ -253,9 +253,12 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     - [x] `stg_accounts` — versão básica (tipagem + filtro `WHERE ISDELETED = FALSE`, sem dedup/limpeza
       de picklist ainda), com `source()` declarado em `_staging__sources.yml`. Rodado com
       `dbt run --select stg_accounts`, 71 linhas em `STAGING.STG_ACCOUNTS` (bate com o total de
-      Accounts ativas). **Pendente:** testes (`_staging__models.yml` com `unique`/`not_null` em
-      `account_id`, `not_null` em `account_name`) já propostos, ainda não confirmados rodando
-      (`dbt test --select stg_accounts`) — próximo passo ao retomar.
+      Accounts ativas).
+    - [x] Testes do `stg_accounts` (24/set/2026) — `_staging__models.yml` com `unique`/`not_null` em
+      `account_id` e `not_null` em `account_name` (sem `unique` em `account_name` de propósito: as
+      duplicatas propositais ainda existem nessa versão), usando a chave `data_tests:` (nova desde o
+      dbt 1.8). Descrição documentada para todas as 11 colunas (base pro `dbt docs` e pra Fase 4).
+      `dbt test --select stg_accounts`: PASS=3.
     - [ ] Adicionar padronização de picklist (`Industry`) e dedup das Accounts duplicadas propositais
       em `stg_accounts`.
     - [ ] `stg_contacts`, `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
