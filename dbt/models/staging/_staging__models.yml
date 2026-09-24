@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_accounts
+    description: "Accounts ativas do Salesforce (sem registros deletados), com tipagem e nomes padronizados."
+    columns:
+      - name: account_id
+        description: "ID do Salesforce (18 caracteres). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: account_name
+        description: "Nome da Account. Ainda contém duplicatas propositais (variações de maiúsculas, sufixo 'Ltda', espaço extra)."
+        data_tests:
+          - not_null
+      - name: industry
+        description: "Setor (picklist Industry). Ainda sem padronização — valores inconsistentes propositais."
+      - name: billing_city
+        description: "Cidade de cobrança."
+      - name: billing_state_code
+        description: "UF de cobrança (código ISO)."
+      - name: billing_country_code
+        description: "País de cobrança (código ISO)."
+      - name: phone
+        description: "Telefone principal."
+      - name: website
+        description: "Site da empresa."
+      - name: number_of_employees
+        description: "Número de funcionários."
+      - name: created_at
+        description: "Data/hora de criação do registro no Salesforce."
+      - name: updated_at
+        description: "Última modificação do registro (SystemModstamp)."
+        
+    
