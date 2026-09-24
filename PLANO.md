@@ -273,7 +273,54 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       o join de multiplicar Accounts se o CSV ganhar linha duplicada. `dbt build --select
       industry_mapping stg_accounts`: PASS=9, com o `build` rodando os testes do seed antes de criar o
       model (comportamento de "portão" do DAG observado na prática).
-    - [ ] Dedup das Accounts duplicadas propositais em `stg_accounts`.
+    - [x] Dedup das Accounts duplicadas propositais (24/set/2026) — **movido do `stg_accounts` para a
+      camada intermediate** (ver decisão abaixo). Narrativa completa:
+      - **1ª hipótese (nome normalizado):** `lower(trim(...))` + regex removendo sufixo "Ltda" no fim,
+        desfazendo as mutações do gerador (maiúsculas, espaço extra, sufixo). Resultado: **14 grupos /
+        29 registros**, muito acima das 6 duplicatas esperadas.
+      - **Investigação no gerador (`generate_sample_data.py`):** (a) `fake.company()` em pt_BR gera
+        nomes a partir de poucos padrões ("Sobrenome", "Sobrenome - EI", "Sobrenome S.A."), então
+        empresas **diferentes** colidem no nome (ex.: três "Siqueira" distintas); (b) a duplicata é
+        `original.copy()` com só o nome mutado — telefone/site/cidade idênticos — e uma das mutações
+        (`replace("Ltda", "")`) é no-op em nome sem "Ltda", gerando duplicata de nome idêntico.
+        **Lição:** nome sozinho não identifica empresa (problema real de *entity resolution*).
+      - **2ª hipótese (chave composta):** nome normalizado + `phone` + `website`. Resultado:
+        **exatamente 6 pares** — bate com o gerador.
+      - **Critério de sobrevivência:** mais antigo vence (`created_at`, desempate por `account_id`) —
+        determinístico e com sentido de negócio. Nos dados, escolhe exatamente os originais (as
+        duplicatas são os 6 últimos IDs inseridos, `...Fg2`–`...Fg7`).
+      - **Decisão de design — dedup na intermediate, não no staging:** (a) convenção dbt: staging não
+        muda granularidade (`stg_accounts` segue 1:1 com a fonte, 71 linhas); resolução de entidade é
+        regra de negócio; (b) o gerador criou Contacts/Opportunities também para as duplicatas —
+        apagar as linhas deixaria filhos órfãos. Por isso dois models em `models/intermediate/`:
+        `int_account_id_mapping` (71 linhas, toda Account → `master_account_id` via
+        `first_value() over (partition by chave order by created_at, account_id)`, flag `is_master`) e
+        `int_accounts` (65 linhas, só mestres). Joins futuros de Contacts/Opportunities passam pelo
+        mapping para reapontar ao mestre.
+      - **Testes:** `unique`/`not_null` nas chaves, `relationships` de `master_account_id` para
+        `int_accounts.account_id` (nenhum de-para aponta para Account descartada) e teste singular
+        `tests/assert_account_dedup_count.sql` (falha se o número de duplicatas resolvidas ≠ 6).
+      - **Obstáculo real — bug da regex com barra simples:** a primeira versão do mapping usou
+        `'\s+ltda\.?$'`. Em string com aspas simples no Snowflake a barra é escape **da string**, então
+        a regex que chegava ao motor era `s+ltda.?$` e nunca removia " LTDA". Resultado: 67 Accounts em
+        vez de 65 (os pares Ribeiro/Ribeiro LTDA e Lima Montenegro - EI/... LTDA não agrupados) — **com
+        todos os testes de integridade passando**. Só foi pego conferindo a contagem contra o número
+        conhecido. Diagnóstico confirmado via `snow sql --stdin` com heredoc `<<'EOF'` (evita o shell
+        mexer nas barras), comparando as duas versões lado a lado. Correção: `'\\s+ltda\\.?$'`. Foi o
+        motivo de criar o teste singular de contagem — e a prova de falha foi feita: voltando a regex
+        quebrada, o teste deu `FAIL` e o `int_accounts` virou `SKIP`.
+      - **Descoberta sobre o "portão" do `dbt build` com views:** o dbt cria o model *antes* de
+        testá-lo, e o `SKIP` só impede *reconstruir* os downstream. Como `int_accounts` é view, ela
+        continuou lendo o mapping já quebrado e retornava 67 mesmo "pulada". Reforça materializar marts
+        como tabela (falha de teste preserva a última versão boa) e vale avaliar padrão blue/green na
+        Fase 3.
+      - **Ressalva do teste de contagem fixa:** só faz sentido porque os dados são sintéticos e
+        estáveis. Num CRM real seria faixa esperada (ex.: 2–15% de duplicatas) com `severity: warn`.
+      - **Limitações conhecidas da regra:** nulos em `phone`/`website` cairiam no mesmo grupo (não
+        ocorre nos dados atuais); telefone não normalizado para dígitos; sem fuzzy matching (acentos,
+        abreviações).
+      - `dbt build --select int_account_id_mapping+`: PASS=9; `INT_ACCOUNTS` = 65, com as 6
+        duplicatas (`...Fg2`–`...Fg7`) apontando cada uma para seu original.
     - [ ] `stg_contacts`, `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).

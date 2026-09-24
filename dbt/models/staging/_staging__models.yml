@@ -10,7 +10,7 @@ models:
           - unique
           - not_null
       - name: account_name
-        description: "Nome da Account. Ainda contém duplicatas propositais (variações de maiúsculas, sufixo 'Ltda', espaço extra)."
+        description: "Nome da Account. Contém duplicatas propositais (variações de maiúsculas, sufixo 'Ltda', espaço extra) — resolvidas em int_accounts via int_account_id_mapping."
         data_tests:
           - not_null
       - name: industry
