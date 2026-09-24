@@ -4,22 +4,29 @@ with source as (
     where not ISDELETED
 ),
 
+industry_mapping as (
+    select * from {{ ref('industry_mapping')}}
+),
+
 renamed as (
 
     select 
-        ID as account_id,
-        NAME as account_name,
-        INDUSTRY as industry,
-         BILLINGCITY as billing_city,
-        BILLINGSTATECODE as billing_state_code,
-        BILLINGCOUNTRYCODE as billing_country_code,
-        PHONE as phone,
-        WEBSITE as website,
-        NUMBEROFEMPLOYEES as number_of_employees,
-        CREATEDDATE as created_at,
-        SYSTEMMODSTAMP as updated_at
+        a.ID as account_id,
+        a.NAME as account_name,
+        coalesce(m.industry_standardized, a.INDUSTRY) as industry,
+        a.INDUSTRY as industry_raw,
+        a.BILLINGCITY as billing_city,
+        a.BILLINGSTATECODE as billing_state_code,
+        a.BILLINGCOUNTRYCODE as billing_country_code,
+        a.PHONE as phone,
+        a.WEBSITE as website,
+        a.NUMBEROFEMPLOYEES as number_of_employees,
+        a.CREATEDDATE as created_at,
+        a.SYSTEMMODSTAMP as updated_at
     
-    from source
+    from source as a 
+    left join industry_mapping as m 
+        on a.industry = m.industry_raw
         
 )
 

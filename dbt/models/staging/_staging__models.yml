@@ -14,7 +14,13 @@ models:
         data_tests:
           - not_null
       - name: industry
-        description: "Setor (picklist Industry). Ainda sem padronização — valores inconsistentes propositais."
+        description: "Setor padronizado via seed industry_mapping (ex.: 'Tech' → 'Technology'). Valores fora do mapeamento passam com o valor original e são acusados pelo teste accepted_values."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Education', 'Healthcare', 'Technology', 'Retail', 'Financial Services', 'Manufacturing']
+      - name: industry_raw
+        description: "Valor original do picklist Industry no Salesforce, sem padronização (mantido para auditoria)."
       - name: billing_city
         description: "Cidade de cobrança."
       - name: billing_state_code

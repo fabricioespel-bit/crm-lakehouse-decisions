@@ -259,8 +259,21 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       duplicatas propositais ainda existem nessa versão), usando a chave `data_tests:` (nova desde o
       dbt 1.8). Descrição documentada para todas as 11 colunas (base pro `dbt docs` e pra Fase 4).
       `dbt test --select stg_accounts`: PASS=3.
-    - [ ] Adicionar padronização de picklist (`Industry`) e dedup das Accounts duplicadas propositais
-      em `stg_accounts`.
+    - [x] Padronização do picklist `Industry` em `stg_accounts` (24/set/2026) — sujeira real no `raw`:
+      9 de 71 Accounts (~13%) em 4 variantes (`Tech`, `Finance`, `Financial`, `Health Care`), todas
+      com equivalente canônico claro, sem nulos. **Decisão de design:** de-para via **seed**
+      (`dbt/seeds/staging/industry_mapping.csv`, 10 linhas → 6 valores canônicos) em vez de
+      `CASE WHEN` no SQL — mapeamento versionado, mantível sem mexer no model, e padrão comum de
+      mercado. Seeds organizados por subpasta espelhando os schemas (bloco `seeds:` no
+      `dbt_project.yml`, `seeds/staging/` → schema `staging`). No model: `left join` com o seed via
+      `ref()` + `coalesce(padronizado, original)` — valor novo não mapeado passa com o original em vez
+      de virar nulo silenciosamente, e o teste `accepted_values` (6 valores canônicos, sintaxe
+      `arguments:` do dbt 1.10+) funciona como alarme. Coluna `industry_raw` mantida para auditoria.
+      Testes também no seed (`dbt/seeds/_seeds.yml`: `unique`/`not_null` em `industry_raw`) — protege
+      o join de multiplicar Accounts se o CSV ganhar linha duplicada. `dbt build --select
+      industry_mapping stg_accounts`: PASS=9, com o `build` rodando os testes do seed antes de criar o
+      model (comportamento de "portão" do DAG observado na prática).
+    - [ ] Dedup das Accounts duplicadas propositais em `stg_accounts`.
     - [ ] `stg_contacts`, `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).

@@ -1,0 +1,15 @@
+version: 2
+
+seeds:
+  - name: industry_mapping
+    description: "De-para do picklist Industry do Salesforce para os 6 valores canônicos."
+    columns:
+      - name: industry_raw
+        description: "Valor como vem do Salesforce."
+        data_tests:
+          - unique
+          - not_null
+      - name: industry_standardized
+        description: "Valor canônico."
+        data_tests:
+          - not_null

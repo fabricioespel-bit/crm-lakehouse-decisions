@@ -26,3 +26,8 @@ models:
       +materialized: table
       +schema: marts
 
+seeds:
+  crm_lakehouse:
+    staging:
+      +schema: staging
+
