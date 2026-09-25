@@ -321,7 +321,18 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
         abreviações).
       - `dbt build --select int_account_id_mapping+`: PASS=9; `INT_ACCOUNTS` = 65, com as 6
         duplicatas (`...Fg2`–`...Fg7`) apontando cada uma para seu original.
-    - [ ] `stg_contacts`, `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
+    - [x] `stg_contacts` (25/set/2026) — mesmo padrão do `stg_accounts` (filtro `ISDELETED`,
+      renomeação snake_case). Colunas limitadas ao que o `generate_contacts()` preenche (`AccountId`,
+      `FirstName`, `LastName`, `Email`, `Phone`, `Title`) + `NAME` → `full_name` (calculado pelo
+      Salesforce) + datas de controle; `OWNERID` deixado de fora (org de um usuário só). **Decisão de
+      design:** `relationships` do `account_id` aponta para `stg_accounts` (71), não `int_accounts`
+      (65) — (a) Contacts das duplicatas têm `account_id` válido que não existe em `int_accounts`, o
+      teste falharia acusando órfãos falsos; (b) staging nunca depende de intermediate (fluxo
+      `staging → intermediate → marts`). A reatribuição à Account mestre fica para a intermediate via
+      `int_account_id_mapping`. `dbt build --select stg_contacts`: PASS=7; 171 linhas (bate com o
+      gerador). **Anotado para depois:** coluna `_AIRBYTE_EXTRACTED_AT` como base de
+      `dbt source freshness` (Fase 3).
+    - [ ] `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de

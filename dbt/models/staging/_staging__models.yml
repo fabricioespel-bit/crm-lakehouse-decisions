@@ -37,5 +37,41 @@ models:
         description: "Data/hora de criação do registro no Salesforce."
       - name: updated_at
         description: "Última modificação do registro (SystemModstamp)."
+  - name: stg_contacts
+    description: "Contatos ativos do Salesforce (sem registros deletados), com tipagem e nomes padronizados."
+    columns:
+      - name: contact_id
+        description: "ID do Salesforce (18 caracteres). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: account_id
+        description: "ID da Account à qual o contato pertence (FK para stg_accounts). Pode apontar para uma Account duplicada — a reatribuição para a mestre é feita na intermediate via int_account_id_mapping."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_accounts')
+                field: account_id
+      - name: full_name
+        description: "Nome completo do contato, calculado pelo Salesforce (FirstName + LastName)."
+        data_tests:
+          - not_null
+      - name: first_name
+        description: "Primeiro nome do contato."
+      - name: last_name
+        description: "Último nome do contato."
+      - name: email
+        description: "E-mail do contato."
+        data_tests:
+          - not_null
+      - name: phone
+        description: "Telefone do contato."
+      - name: title
+        description: "Cargo do contato."
+      - name: created_at
+        description: "Data/hora de criação do registro no Salesforce."
+      - name: updated_at
+        description: "Última modificação do registro (SystemModstamp)."
         
     
