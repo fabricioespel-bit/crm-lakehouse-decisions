@@ -53,6 +53,10 @@ este projeto do `data-lake-engineering-decisions` do que um funil limpo diferenc
 gratuito do Snowflake (30 dias corridos, ~US$400 de crédito) impõe um teto de tempo natural mesmo sem
 prazo escrito; vale ter isso em mente ao decidir o ritmo de trabalho.
 
+**Revisto em 14/out/2026:** o projeto ficou pausado de 25/set a 14/out (dedicação a outro projeto), e o
+teto dos trials passou a ser restrição concreta — **Snowflake vence ~21/out/2026, Airbyte Cloud
+~22/out/2026**. Prioridades e opções pós-trial no replanejamento da seção 7 (entrada de 14/out/2026).
+
 ## 2. Escopo e domínio
 
 **Problema de negócio (ilustrativo):** duas perguntas conectadas, que juntas cobrem uma dor comum em
@@ -352,7 +356,9 @@ encontrados e como foram resolvidos (mesmo padrão dos outros repositórios do p
 honesta do processo é parte do valor do projeto, não só o resultado final). Ao abrir uma sessão nova neste
 diretório, começar confirmando: (1) se a seção 0 (modo de trabalho) ainda reflete o que Fabricio quer; (2)
 em que fase o projeto está; (3) se algum dos riscos já identificados (Airbyte/Docker) já se confirmou. Para
-o estado detalhado e a fila de próximos passos, ver a seção 7.
+o estado detalhado e a fila de próximos passos, ver a seção 7. **A partir de 14/out/2026, checar também o
+status dos trials** (Snowflake ~21/out, Airbyte ~22/out) e a decisão pós-trial pendente no
+replanejamento da seção 7.
 
 ## 7. Log de progresso e próximos passos imediatos
 
@@ -465,3 +471,47 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
   cliques, estrutura correta).
 - [x] Documentar os dados como sintéticos (21/set/2026) — `data/GENERATED_DATA.md`.
 - [ ] Seguir para a Fase 1 (Airbyte → Snowflake `raw`).
+
+**14/out/2026 — retomada após pausa e replanejamento pelos prazos dos trials:**
+
+Projeto pausado de 25/set a 14/out/2026 (dedicação a outro projeto). Último ponto: `stg_contacts`
+commitado; rascunho de `stg_leads` iniciado, ainda sem commit e com correções pendentes (vírgula
+faltando após o CTE `source`, filtro deve usar `ISDELETED` e não `is_deleted`, incluir os três campos
+UTM — base da 2b — e os campos de conversão `ISCONVERTED`/`CONVERTED*ID` se preenchidos).
+
+Prazos confirmados: **Snowflake vence ~21/out/2026**, **Airbyte Cloud ~22/out/2026**. Impacto real de
+cada um:
+
+| Serviço | Vence | Impacto |
+|---|---|---|
+| Airbyte Cloud | ~22/out | Baixo — os dados já estão em `RAW`; o dbt não depende do Airbyte, só um novo sync dependeria. |
+| Snowflake | ~21/out | Alto — dbt, testes, CI e `dbt docs generate` (lê o catálogo) exigem a conta ativa. |
+| Salesforce DE | não vence | Nenhum. |
+
+**Prioridades até 21/out** (em ordem; independem da decisão pós-trial):
+
+- [ ] Backup do `RAW` para fora do Snowflake — `COPY INTO @stage` (Parquet ou CSV) + `snow stage get`
+  para pasta local fora do git. Garante os dados em qualquer cenário (conta paga, nova conta ou
+  migração local).
+- [ ] Último sync do Airbyte (só se algo mudou no Salesforce desde 22/set) + prints da configuração da
+  Connection para documentação.
+- [ ] Fechar a staging: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
+- [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
+
+**Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
+pelo menos uma execução verde registrada e `dbt docs` publicado no GitHub Pages (site estático,
+continua no ar depois do vencimento).
+
+**Opções pós-trial (decisão em aberto, sem necessidade imediata):**
+
+- **A — Snowflake On-Demand:** sem mensalidade nem mínimo; cobra por crédito de compute (X-Small =
+  1 crédito/h, por segundo, mínimo de 60s a cada vez que o warehouse liga), storage por TB/mês
+  (desprezível aqui). Referência aproximada AWS US: ~US$ 2/crédito Standard, ~US$ 3 Enterprise —
+  conferir edição/região da conta em Admin → Billing. Estimativa: ~US$ 5–12/mês com uso leve,
+  ~US$ 20–30+/mês com desenvolvimento diário. Se adotada, criar **resource monitor** com teto mensal
+  (ex.: `credit_quota = 5`, notificar em 80%, suspender em 100%) — também é ponto de governança de
+  custo para o portfólio.
+- **B — Encerrar no trial:** evidências preservadas (código no repo, `dbt docs` publicado, execução de
+  CI registrada); CI deixa de rodar depois.
+- **C — Migrar para `dbt-duckdb` local** a partir do backup do `RAW`: gratuito e mantém CI funcionando,
+  mas perde o "Snowflake real" que é um dos objetivos do projeto.
