@@ -182,7 +182,10 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   - [x] Desenhar e gerar a fonte sintética de eventos de marketing (21/set/2026, checklist detalhado
     na seção 7).
   - [x] Criar conta trial do Snowflake (21/set/2026) — conta criada via "Sign up with Google"
-    (AWS, região/edição escolhidas no fluxo "Snowflake CoCo"). **Obstáculos reais resolvidos (22/set):**
+    (AWS, região/edição escolhidas no fluxo "Snowflake CoCo"). Esse fluxo inscreveu a conta também num
+    trial da assinatura **Cortex Code CLI (CoCo)**, US$ 20/mês, renovação automática em 21/out —
+    **cancelada em 16/out/2026** sem nunca ter sido usada (IA fora de escopo, seção 2; o Claude Code já
+    cumpre esse papel). Cancelar não afeta a conta Snowflake nem os dados. **Obstáculos reais resolvidos (22/set):**
     (1) login social via Google não é integração SAML de verdade — `--authenticator externalbrowser`
     falha com erro de SAML; (2) autenticação de CLI/scripts exige **key-pair (RSA)**, já que não existe
     senha tradicional numa conta criada via Google — gerada localmente (`~/.snowflake_keys/`, fora do
