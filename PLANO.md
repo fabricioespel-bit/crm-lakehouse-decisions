@@ -493,9 +493,22 @@ cada um:
 
 **Prioridades até 21/out** (em ordem; independem da decisão pós-trial):
 
-- [ ] Backup do `RAW` para fora do Snowflake — `COPY INTO @stage` (Parquet ou CSV) + `snow stage get`
-  para pasta local fora do git. Garante os dados em qualquer cenário (conta paga, nova conta ou
-  migração local).
+- [x] Backup do `RAW` para fora do Snowflake (16/out/2026) — garante os dados em qualquer cenário (conta
+  paga, nova conta ou migração local). Inventário em 14/out: 8 tabelas (ACCOUNT 90, CONTACT 203, LEAD
+  153, OPPORTUNITY 207, OPPORTUNITYCONTACTROLE 165, MARKETING_CAMPAIGNS 8, MARKETING_CAMPAIGN_STATS 8,
+  MARKETING_CLICK_EVENTS 1740 — contagens do Salesforce incluem os deletados trazidos pelo `queryAll`
+  do Airbyte, de propósito: backup do raw é sem filtro). **Obstáculo real:** a primeira tentativa em
+  Parquet falhou — o Snowflake não descarrega `TIMESTAMP_TZ`/`LTZ` para Parquet (erro 100171), e as
+  tabelas do Airbyte usam `TIMESTAMP_TZ` (`CREATEDDATE`, `SYSTEMMODSTAMP`, `_AIRBYTE_EXTRACTED_AT`…).
+  Cast coluna a coluna seria SQL enorme e frágil, então o formato virou **JSON gzip + DDL**: dados via
+  `COPY INTO @~/backup_raw_20261016/<tabela>.json.gz FROM (SELECT object_construct_keep_null(*) ...)`
+  (genérico pra qualquer tabela, preserva nulos — o `object_construct` comum descarta chaves nulas — e
+  timestamps saem como texto com offset), e tipos exatos via `get_ddl('schema', 'CRM_LAKEHOUSE.RAW',
+  true)` descarregado como `raw_ddl.sql`. Restauração: recriar pelo DDL + `COPY INTO` do JSON com
+  `match_by_column_name`. Download com `snow stage copy` (não existe `snow stage get`) para
+  `~/backups/crm-lakehouse-raw-20261016/` (fora do repo). Validação: `rows_unloaded` de cada tabela
+  bateu com o inventário, 9 arquivos baixados com o mesmo tamanho do `output_bytes` (o `list` do stage
+  mostra alguns bytes a mais por causa da criptografia), `gzip -t` OK e DDL legível.
 - [ ] Último sync do Airbyte (só se algo mudou no Salesforce desde 22/set) + prints da configuração da
   Connection para documentação.
 - [ ] Fechar a staging: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
