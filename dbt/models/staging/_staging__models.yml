@@ -90,14 +90,14 @@ models:
         data_tests:
           - not_null
       - name: status
-        description: "Status do lead."
+        description: "Status do lead no funil (picklist Status). Inconsistência proposital: 33 Leads estão 'Closed - Converted' sem conversão real no Salesforce (is_converted = false, sem Opportunity) — acusado pelo teste singular assert_lead_status_matches_conversion (severity warn)."
         data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['Open - Not Contacted', 'Working - Contacted', 'Closed - Converted', 'Closed - Not Converted']
       - name: lead_source
-        description: "Fonte do lead."
+        description: "Origem do lead (picklist LeadSource). Sujeira proposital: ~22% nulo ou genérico ('Other'), acusada pelos testes not_null e accepted_values com severity warn — dado sujo esperado, tratado na atribuição de marketing (2b/2c), não motivo para travar o pipeline."
         data_tests:
           - not_null:
               config:
@@ -108,21 +108,21 @@ models:
               config:
                 severity: warn
       - name: industry
-        description: ""
+        description: "Setor do lead (picklist Industry). Diferente de stg_accounts, já vem limpo da fonte — não passa pelo seed industry_mapping; o accepted_values fica como proteção."
         data_tests:
           - accepted_values:
               arguments:
                 values: ['Education', 'Healthcare', 'Technology', 'Retail', 'Financial Services', 'Manufacturing']
       - name: is_converted
-        description: "Indica se o lead foi convertido."
+        description: "Indica se o lead passou pela conversão do Salesforce (Lead → Account/Contact/Opportunity). Todos false nos dados sintéticos, mesmo para status 'Closed - Converted'."
         data_tests:
           - not_null
       - name: utm_source
-        description: "Origem de trafego do lead"
+        description: "Origem de tráfego do lead (campo customizado UTM_Source__c, preenchido via campo oculto de formulário). Nulo esperado: só ~65% dos Leads vindos de marketing receberam UTM (perda de rastreamento proposital). Chave do stitching marketing ↔ Lead (2b)."
       - name: utm_medium
-        description: "Midia de trafego do lead"
+        description: "Mídia de tráfego do lead (campo customizado UTM_Medium__c). Nulo esperado, mesma perda de rastreamento de utm_source."
       - name: utm_campaign
-        description: "Campanha de trafego do lead"
+        description: "Campanha de tráfego do lead (campo customizado UTM_Campaign__c). Nulo esperado, mesma perda de rastreamento de utm_source."
       - name: converted_date
         description: "Data de conversão do lead"
       - name: converted_account_id
