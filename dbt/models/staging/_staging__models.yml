@@ -135,3 +135,60 @@ models:
         description: "Data de criação do lead"
       - name: updated_at
         description: "Data de atualização do lead"
+  - name: stg_opportunities
+    description: "Opportunities ativas do Salesforce (sem registros deletados), com nomes padronizados e amount tipado como numérico de precisão fixa."
+    columns:
+      - name: opportunity_id
+        description: "ID do Salesforce (18 caracteres). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: account_id
+        description: "ID da Account da Opportunity (FK para stg_accounts). Pode apontar para uma Account duplicada — a reatribuição para a mestre é feita na intermediate via int_account_id_mapping."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_accounts')
+                field: account_id
+      - name: primary_contact_id
+        description: "Contato primário da Opportunity (campo ContactId, preenchido pelo Salesforce a partir do Contact Role marcado como primário). Nulo esperado em ~19,5% (39 de 200): sujeira proposital de Opportunities sem Contact Role."
+      - name: owner_id
+        description: "ID do usuário dono da Opportunity."
+      - name: opportunity_name
+        description: "Nome da Opportunity."
+      - name: stage_name
+        description: "Estágio do funil de vendas (picklist StageName)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Prospecting', 'Qualification', 'Needs Analysis', 'Proposal/Price Quote', 'Negotiation/Review', 'Closed Won', 'Closed Lost']
+      - name: amount
+        description: "Valor da Opportunity. Vem como FLOAT do RAW e é convertido para number(18, 2) no staging — valor monetário em ponto flutuante acumula erro de arredondamento em somas."
+        data_tests:
+          - not_null
+      - name: probability
+        description: "Probabilidade de fechamento (0–100), derivada do estágio pelo Salesforce."
+      - name: close_date
+        description: "Data de fechamento (real, se fechada; prevista, se aberta). Tipo DATE, sem hora. Sujeira proposital: ~5% das Opportunities fechadas têm close_date anterior a created_at — acusado pelo teste singular assert_opportunities_close_date_after_created (severity warn). Opportunities abertas podem ter close_date no passado (pipeline vencido)."
+        data_tests:
+          - not_null
+      - name: is_closed
+        description: "Indica se a Opportunity está fechada (Closed Won ou Closed Lost), derivado do estágio pelo Salesforce."
+        data_tests:
+          - not_null
+      - name: is_won
+        description: "Indica se a Opportunity foi ganha (Closed Won), derivado do estágio pelo Salesforce."
+        data_tests:
+          - not_null
+      - name: forecast_category
+        description: "Categoria de forecast (campo ForecastCategory), derivada do estágio pelo Salesforce."
+      - name: lead_source
+        description: "Origem da Opportunity (campo nativo LeadSource). Vazio em todas as Opportunities: o dado de origem não foi propagado do Lead — por isso a atribuição de marketing (2b) parte dos UTMs do Lead, não deste campo."
+      - name: campaign_id
+        description: "Primary Campaign Source (campo nativo de atribuição do Salesforce). Vazio em todas as Opportunities, pelo mesmo motivo de lead_source."
+      - name: created_at
+        description: "Data/hora de criação do registro no Salesforce."
+      - name: updated_at
+        description: "Última modificação do registro (SystemModstamp)."

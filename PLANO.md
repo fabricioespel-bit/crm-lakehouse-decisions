@@ -340,7 +340,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       gerador). **Anotado para depois:** coluna `_AIRBYTE_EXTRACTED_AT` como base de
       `dbt source freshness` (Fase 3).
     - [x] `stg_leads` (22/out/2026).
-    - [ ] `stg_opportunities`, `stg_opportunity_contact_roles`.
+    - [x] `stg_opportunities` (22/out/2026).
+    - [ ] `stg_opportunity_contact_roles`.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
@@ -513,7 +514,7 @@ cada um:
 - [x] Prints da configuração da Connection do Airbyte (16/out/2026, em `docs/img/`). Último sync
   **dispensado** (22/out/2026): nada mudou no Salesforce desde 22/set e o Airbyte deixou de ser necessário
   (ver registro de 22/out abaixo).
-- [ ] Fechar a staging: ~~`stg_leads`~~ (feito 22/out), `stg_opportunities`, `stg_opportunity_contact_roles`.
+- [ ] Fechar a staging: ~~`stg_leads`~~, ~~`stg_opportunities`~~ (feitos 22/out), `stg_opportunity_contact_roles`.
 - [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
 
 **Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
@@ -582,3 +583,23 @@ Próximos passos, em ordem:
   da lista precisa do seu (`- not_null:` com dois-pontos para aceitar config).
 
 Próximo: `stg_opportunities` e `stg_opportunity_contact_roles`.
+
+**22/out/2026 — `stg_opportunities` fechado.** 16 das 46 colunas do `RAW` (fora: metadados de UI/
+auditoria, `FISCAL*`, `EXPECTEDREVENUE` derivável, `TYPE` vazio e os cinco `__C` do app de demonstração
+que vinha na org DE). `dbt build --select stg_opportunities`: **PASS=11 WARN=1 ERROR=0**. Decisões e achados:
+
+- `AMOUNT` vem como `FLOAT` do Airbyte → cast para `number(18, 2)` no staging (dinheiro em ponto
+  flutuante acumula erro de arredondamento em somas).
+- `CONTACTID` preenchido em 161/200: o Salesforce deriva do Contact Role primário; os 39 nulos (19,5%)
+  são exatamente a sujeira de Opportunity sem Contact Role → entra como `primary_contact_id`, sem `not_null`.
+- `LEADSOURCE` e `CAMPAIGNID` (atribuição nativa do Salesforce) vazios em todas — mantidos e documentados,
+  pois justificam a 2b usar os UTMs do Lead.
+- Teste singular `assert_opportunities_close_date_after_created` (`close_date < created_at::date`,
+  `created_at` é timestamp): WARN 2 (~5% das fechadas).
+- Pegadinhas: (1) no dbt o nome do model é o nome do arquivo — `stg_oportunities.sql` (grafia em
+  português) fez o `--select` não achar nada, só com warnings; (2) depois de renomear, o **partial
+  parsing** manteve os testes do YAML órfãos (só 1 teste novo encontrado) — resolvido com
+  `--no-partial-parse` uma vez.
+- Para investigar nos marts: Opportunities abertas com `close_date` no passado (pipeline vencido).
+
+Próximo: `stg_opportunity_contact_roles`.
