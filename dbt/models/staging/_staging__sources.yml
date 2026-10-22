@@ -10,3 +10,14 @@ sources:
       - name: LEAD
       - name: OPPORTUNITY
       - name: OPPORTUNITYCONTACTROLE
+
+  - name: marketing
+    database: CRM_LAKEHOUSE
+    schema: RAW
+    tables:
+      - name: MARKETING_CAMPAIGNS
+      - name: MARKETING_CAMPAIGN_STATS
+      - name: MARKETING_CLICK_EVENTS  
+
+  
+    

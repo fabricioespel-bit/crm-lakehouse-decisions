@@ -342,9 +342,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     - [x] `stg_leads` (22/out/2026).
     - [x] `stg_opportunities` (22/out/2026).
     - [x] `stg_opportunity_contact_roles` (22/out/2026) — fecha a staging do Salesforce.
-    - [ ] Staging da fonte de marketing (`stg_marketing_campaigns`, `stg_marketing_click_events`,
-      `stg_marketing_campaign_stats`) — as 3 tabelas estão no `RAW` mas ainda sem `source()` declarado;
-      pré-requisito da 2b.
+    - [x] Staging da fonte de marketing (22/out/2026) — source `marketing` declarada +
+      `stg_marketing_campaigns`, `stg_marketing_campaign_stats`, `stg_marketing_click_events`. Fecha a 2a.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
@@ -518,7 +517,7 @@ cada um:
   **dispensado** (22/out/2026): nada mudou no Salesforce desde 22/set e o Airbyte deixou de ser necessário
   (ver registro de 22/out abaixo).
 - [x] Fechar a staging do Salesforce: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles` (22/out).
-- [ ] Staging da fonte de marketing (3 tabelas, pré-requisito da 2b).
+- [x] Staging da fonte de marketing (3 tabelas, 22/out) — 2a completa.
 - [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
 
 **Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
@@ -625,3 +624,30 @@ Perfil levantado antes no backup do `RAW` de 16/out, para os testes baterem com 
   sintéticos, agregaria pouco agora).
 
 Próximo: staging da fonte de marketing (declarar source + 3 models), depois 2b (stitching marketing ↔ Lead).
+
+**22/out/2026 — staging de marketing fechada; Fase 2a completa.** Source `marketing` declarada em
+`_staging__sources.yml` (mesmo `RAW`, carregado via `COPY INTO`) + 3 models + teste singular
+`assert_marketing_campaigns_utm_unique`. `dbt build`: **PASS=22 WARN=0 ERROR=0** (3 views, 18 testes
+genéricos, 1 singular); 8 / 8 / 1.740 linhas. Perfil levantado antes no backup do `RAW`:
+
+- Fonte limpa (sem nulos, caixa ou espaço inconsistentes): a sujeira do projeto está no CRM e na perda
+  de UTM, não aqui. Os UTMs de cada clique batem 100% com os da campanha; `clicks` em
+  `campaign_stats` bate exatamente com a contagem de eventos por campanha.
+- `(utm_source, utm_medium, utm_campaign)` é único por campanha — chave do stitching da 2b, protegida
+  pelo teste singular (sem `dbt_utils` no projeto ainda).
+- `campaign_stats` tem grão **campanha**, sem data (total da campanha inteira) — ROAS por período não
+  sai daqui; se precisar, é a `campaign_performance` (Fonte A) adiada em 21/set.
+- `EVENT_TIMESTAMP` é `TIMESTAMP_NTZ`, mas o gerador produziu em **UTC** (comparado com o `CreatedDate`
+  do Lead sem fuso) → renomeado `clicked_at`, mantido NTZ no staging; a conversão para o mesmo
+  referencial do `created_at` do Lead (`TIMESTAMP_TZ`) fica para a 2b.
+- Lado do Lead: 59 de 125 Leads ativos têm UTM, todas as combinações existem em `stg_marketing_campaigns`.
+- **Achado — não existe campanha de custo zero.** O desenho (seção 7, 21/set) previa newsletter com
+  custo zero para forçar o tratamento de divisão por zero no ROAS, mas o gerador sorteia o canal entre
+  4 opções e newsletter não saiu nas 8 campanhas (`generate_marketing_events.py`). Decisão para a 2c:
+  escrever o ROAS defensivo (`nullif(cost, 0)`) e documentar (recomendado), ou acrescentar uma campanha
+  `newsletter/email` com custo zero no `RAW`.
+- Pegadinha: no primeiro `build` o bloco do `_staging__models.yml` não tinha sido salvo — rodou só views
+  + teste singular (PASS=4) sem erro nenhum. Conferir o "Found N data tests" do cabeçalho é o jeito
+  rápido de perceber teste faltando.
+
+Próximo: Fase 2b — stitching marketing ↔ Lead (UTMs + proximidade de tempo, taxa de match como métrica).

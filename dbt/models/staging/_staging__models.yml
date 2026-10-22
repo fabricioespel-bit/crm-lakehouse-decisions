@@ -231,5 +231,82 @@ models:
         description: "Data/hora de criação do registro no Salesforce."
       - name: updated_at
         description: "Última modificação do registro (SystemModstamp)."
+  
+  - name: stg_marketing_campaigns
+    description: "Campanhas de marketing (fonte sintética de tracking de primeira parte). A combinação (utm_source, utm_medium, utm_campaign) é única por campanha — é a chave do stitching marketing ↔ Lead (2b), garantida pelo teste singular assert_marketing_campaigns_utm_unique."
+    columns:
+      - name: campaign_id
+        description: "ID da campanha (UUID gerado na fonte). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: utm_source
+        description: "Origem do tráfego (plataforma). 'newsletter' está no domínio do gerador, mas não foi sorteado nos dados atuais."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['google', 'meta', 'linkedin', 'newsletter']
+      - name: utm_medium
+        description: "Mídia do tráfego (tipo de canal)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['cpc', 'paid_social', 'email']
+      - name: utm_campaign
+        description: "Nome da campanha no padrão UTM (snake_case)."
+        data_tests:
+          - not_null
+  - name: stg_marketing_campaign_stats
+    description: "Totais de desempenho por campanha (impressões, cliques, custo) — grão campanha, sem dimensão de data. Base do custo no ROAS (2c)."
+    columns:
+      - name: campaign_id
+        description: "ID da campanha (FK para stg_marketing_campaigns). Chave primária — 1 linha por campanha."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketing_campaigns')
+                field: campaign_id
+      - name: impressions
+        description: "Total de impressões da campanha."
+        data_tests:
+          - not_null
+      - name: clicks
+        description: "Total de cliques da campanha. Bate com a contagem de linhas em stg_marketing_click_events por campanha."
+        data_tests:
+          - not_null
+      - name: cost
+        description: "Custo total da campanha (number(10, 2)), derivado de CPC por canal no gerador. Canal próprio (newsletter) teria custo zero — o ROAS precisa tratar divisão por zero."
+        data_tests:
+          - not_null
+  - name: stg_marketing_click_events
+    description: "Cliques individuais em anúncios com UTM (tracking de primeira parte). O click_id nunca chega ao Salesforce — o vínculo com o Lead é pelos três UTMs + proximidade de tempo (2b)."
+    columns:
+      - name: click_id
+        description: "ID do clique (UUID gerado na fonte). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: campaign_id
+        description: "ID da campanha do clique (FK para stg_marketing_campaigns)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketing_campaigns')
+                field: campaign_id
+      - name: utm_source
+        description: "Origem do tráfego do clique (redundante com a campanha, mantido como veio no evento)."
+      - name: utm_medium
+        description: "Mídia do tráfego do clique."
+      - name: utm_campaign
+        description: "Nome da campanha do clique."
+      - name: clicked_at
+        description: "Data/hora do clique. TIMESTAMP_NTZ (sem fuso) na fonte, mas gerado em UTC — ao comparar com created_at do Lead (TIMESTAMP_TZ) na 2b, converter para o mesmo referencial."
+        data_tests:
+          - not_null
 
 
