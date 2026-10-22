@@ -339,7 +339,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       `int_account_id_mapping`. `dbt build --select stg_contacts`: PASS=7; 171 linhas (bate com o
       gerador). **Anotado para depois:** coluna `_AIRBYTE_EXTRACTED_AT` como base de
       `dbt source freshness` (Fase 3).
-    - [ ] `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
+    - [x] `stg_leads` (22/out/2026).
+    - [ ] `stg_opportunities`, `stg_opportunity_contact_roles`.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
@@ -512,7 +513,7 @@ cada um:
 - [x] Prints da configuração da Connection do Airbyte (16/out/2026, em `docs/img/`). Último sync
   **dispensado** (22/out/2026): nada mudou no Salesforce desde 22/set e o Airbyte deixou de ser necessário
   (ver registro de 22/out abaixo).
-- [ ] Fechar a staging: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
+- [ ] Fechar a staging: ~~`stg_leads`~~ (feito 22/out), `stg_opportunities`, `stg_opportunity_contact_roles`.
 - [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
 
 **Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
@@ -560,3 +561,24 @@ Próximos passos, em ordem:
   (`resource_constraint = standard_gen_1`) é opcional, decisão em aberto.
 - [ ] Retomar a Fase 2: fechar `stg_leads` (correções de 14/out), `stg_opportunities`,
   `stg_opportunity_contact_roles`; depois 2b (stitching marketing ↔ Lead).
+
+**22/out/2026 — `stg_leads` fechado.** Model com filtro `not ISDELETED`, os três campos UTM
+(`utm_source`/`utm_medium`/`utm_campaign`, base da 2b) e os campos de conversão (`is_converted`,
+`converted_date` — `DATE`, por isso sem sufixo `_at` —, `converted_account_id`/`_contact_id`/
+`_opportunity_id`). `dbt build --select stg_leads`: **PASS=9 WARN=3 ERROR=0**. Decisões e achados:
+
+- `industry` dos Leads veio limpo (sujeira de picklist só nas Accounts) — sem seed, só `accepted_values`.
+- `lead_source`: sujeira proposital (15 "Other" + 12 nulos = 27/125, ~22%) coberta por **dois** testes
+  com `severity: warn` — o `accepted_values` não acusa nulos (`NULL not in (...)` não retorna linha),
+  então o `not_null` é necessário à parte. Warn e não error: é dado sujo esperado, a ser tratado na
+  atribuição, não motivo para travar o pipeline. Detalhe de leitura de log: o `accepted_values` reporta
+  1 linha por **valor distinto** inválido (WARN 1 = só "Other"), não por registro.
+- **Achado:** 33 Leads com `status = 'Closed - Converted'` mas `is_converted = false` e sem Opportunity
+  — o script de geração gravou o status via API sem passar pela conversão real do Salesforce. Coberto
+  pelo primeiro **teste singular** do staging, `tests/assert_lead_status_matches_conversion.sql`
+  (`severity='warn'` no `config()` do SQL). Consequência para a 2b/2c: o elo Lead → Opportunity não
+  pode vir dos campos `converted_*` (todos nulos); vai precisar de outra chave (ex.: Account/Contact).
+- Pegadinha de YAML: o `config: severity` vale só para o teste sob o qual está recuado; cada teste
+  da lista precisa do seu (`- not_null:` com dois-pontos para aceitar config).
+
+Próximo: `stg_opportunities` e `stg_opportunity_contact_roles`.
