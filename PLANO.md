@@ -509,8 +509,9 @@ cada um:
   `~/backups/crm-lakehouse-raw-20261016/` (fora do repo). Validação: `rows_unloaded` de cada tabela
   bateu com o inventário, 9 arquivos baixados com o mesmo tamanho do `output_bytes` (o `list` do stage
   mostra alguns bytes a mais por causa da criptografia), `gzip -t` OK e DDL legível.
-- [ ] Último sync do Airbyte (só se algo mudou no Salesforce desde 22/set) + prints da configuração da
-  Connection para documentação.
+- [x] Prints da configuração da Connection do Airbyte (16/out/2026, em `docs/img/`). Último sync
+  **dispensado** (22/out/2026): nada mudou no Salesforce desde 22/set e o Airbyte deixou de ser necessário
+  (ver registro de 22/out abaixo).
 - [ ] Fechar a staging: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles`.
 - [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
 
@@ -531,3 +532,22 @@ continua no ar depois do vencimento).
   CI registrada); CI deixa de rodar depois.
 - **C — Migrar para `dbt-duckdb` local** a partir do backup do `RAW`: gratuito e mantém CI funcionando,
   mas perde o "Snowflake real" que é um dos objetivos do projeto.
+
+**22/out/2026 — decisão pós-trial: opção A (Snowflake On-Demand); Airbyte encerrado.**
+
+O trial do Snowflake venceu (~21/out) e o projeto **segue no Snowflake** em On-Demand, para manter o
+"Snowflake real" como um dos objetivos do portfólio. O Airbyte Cloud (vence ~22/out) **não será
+renovado**: os dados do Salesforce já estão no `RAW` e o dbt não depende dele; o conector fica
+documentado pelos prints em `docs/img/` e pelos registros da Fase 1. Se algum dia precisar de um novo
+sync, o caminho é reativar o Airbyte ou carregar via script (Salesforce CLI → CSV → `COPY INTO`).
+
+Próximos passos, em ordem:
+
+- [ ] Reativar a conta: Snowsight → Admin → Billing & Terms → adicionar forma de pagamento (sai do
+  estado suspenso do trial). Conferir edição/região para saber o preço do crédito.
+- [ ] Conferir que o `RAW` continua íntegro (contagens do inventário de 14/out); se não, restaurar a
+  partir do backup de 16/out.
+- [ ] Criar **resource monitor** com teto mensal (ex.: `credit_quota = 5`, notificar em 80%, suspender
+  em 100%) atribuído ao `CRM_LAKEHOUSE_WH`, e conferir `AUTO_SUSPEND` baixo (60s) no warehouse.
+- [ ] Retomar a Fase 2: fechar `stg_leads` (correções de 14/out), `stg_opportunities`,
+  `stg_opportunity_contact_roles`; depois 2b (stitching marketing ↔ Lead).
