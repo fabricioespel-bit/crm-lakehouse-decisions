@@ -543,11 +543,20 @@ sync, o caminho é reativar o Airbyte ou carregar via script (Salesforce CLI →
 
 Próximos passos, em ordem:
 
-- [ ] Reativar a conta: Snowsight → Admin → Billing & Terms → adicionar forma de pagamento (sai do
-  estado suspenso do trial). Conferir edição/região para saber o preço do crédito.
-- [ ] Conferir que o `RAW` continua íntegro (contagens do inventário de 14/out); se não, restaurar a
-  partir do backup de 16/out.
-- [ ] Criar **resource monitor** com teto mensal (ex.: `credit_quota = 5`, notificar em 80%, suspender
-  em 100%) atribuído ao `CRM_LAKEHOUSE_WH`, e conferir `AUTO_SUSPEND` baixo (60s) no warehouse.
+- [x] (22/out/2026) Reativar a conta: Snowsight → Admin → Billing & Terms → adicionar forma de pagamento (sai do
+  estado suspenso do trial). Conferir edição/região para saber o preço do crédito. Conta: edição
+  **Standard**, **AWS US East (Ohio)** — referência ~US$ 2/crédito On-Demand (conferir na fatura), então
+  `credit_quota = 5` ≈ teto de US$ 10/mês.
+- [x] (22/out/2026) Conferir que o `RAW` continua íntegro (contagens do inventário de 14/out); se não,
+  restaurar a partir do backup de 16/out. Conferido no Snowsight: contagens batem, dados preservados
+  após o vencimento do trial — backup não precisou ser usado.
+- [x] (22/out/2026) Criar **resource monitor** com teto mensal atribuído ao `CRM_LAKEHOUSE_WH`, e
+  conferir `AUTO_SUSPEND` baixo (60s) no warehouse. Feito: `CRM_LAKEHOUSE_RM` (`credit_quota = 5`,
+  mensal, notify 80% / suspend 100% / suspend_immediate 110%); `auto_suspend = 60` e `auto_resume` já
+  estavam configurados. **Pegadinha real:** o `create resource monitor` sozinho não protege nada — o
+  `show resource monitors` mostrava `level = None` e o `show warehouses` `resource_monitor = null`
+  até rodar `alter warehouse ... set resource_monitor = ...` separadamente. Observado também que o
+  warehouse é `STANDARD_GEN_2` (Gen2 consome mais créditos/h que Gen1); voltar para Gen1
+  (`resource_constraint = standard_gen_1`) é opcional, decisão em aberto.
 - [ ] Retomar a Fase 2: fechar `stg_leads` (correções de 14/out), `stg_opportunities`,
   `stg_opportunity_contact_roles`; depois 2b (stitching marketing ↔ Lead).
