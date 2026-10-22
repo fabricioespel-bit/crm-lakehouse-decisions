@@ -341,7 +341,10 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       `dbt source freshness` (Fase 3).
     - [x] `stg_leads` (22/out/2026).
     - [x] `stg_opportunities` (22/out/2026).
-    - [ ] `stg_opportunity_contact_roles`.
+    - [x] `stg_opportunity_contact_roles` (22/out/2026) — fecha a staging do Salesforce.
+    - [ ] Staging da fonte de marketing (`stg_marketing_campaigns`, `stg_marketing_click_events`,
+      `stg_marketing_campaign_stats`) — as 3 tabelas estão no `RAW` mas ainda sem `source()` declarado;
+      pré-requisito da 2b.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
@@ -514,7 +517,8 @@ cada um:
 - [x] Prints da configuração da Connection do Airbyte (16/out/2026, em `docs/img/`). Último sync
   **dispensado** (22/out/2026): nada mudou no Salesforce desde 22/set e o Airbyte deixou de ser necessário
   (ver registro de 22/out abaixo).
-- [ ] Fechar a staging: ~~`stg_leads`~~, ~~`stg_opportunities`~~ (feitos 22/out), `stg_opportunity_contact_roles`.
+- [x] Fechar a staging do Salesforce: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles` (22/out).
+- [ ] Staging da fonte de marketing (3 tabelas, pré-requisito da 2b).
 - [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
 
 **Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
@@ -603,3 +607,21 @@ que vinha na org DE). `dbt build --select stg_opportunities`: **PASS=11 WARN=1 E
 - Para investigar nos marts: Opportunities abertas com `close_date` no passado (pipeline vencido).
 
 Próximo: `stg_opportunity_contact_roles`.
+
+**22/out/2026 — `stg_opportunity_contact_roles` fechado; staging do Salesforce completa.** 7 colunas
+(id, `opportunity_id`, `contact_id`, `role`, `is_primary`, datas). `dbt build --select
+stg_opportunity_contact_roles`: **PASS=9 WARN=0 ERROR=0**, 161 linhas (165 no `RAW`, 4 deletadas).
+Perfil levantado antes no backup do `RAW` de 16/out, para os testes baterem com o dado real:
+
+- Todos os 161 são `Decision Maker` e `is_primary = true`: exatamente 1 role por Opportunity, sem par
+  opportunity×contato repetido. `accepted_values` usa a lista padrão do picklist `Role` como proteção.
+- Sem órfãos: `relationships` para `stg_opportunities` e `stg_contacts` (staging → staging, mesmo
+  critério do `stg_contacts`).
+- A sujeira "Opportunity sem Contact Role" (39 de 200) **não aparece nesta tabela** — é ausência de linha,
+  visível como `primary_contact_id` nulo em `stg_opportunities`. Tratar na intermediate/marts (ex.: flag
+  `has_contact_role`).
+- Não incluídos de propósito: unicidade de `(opportunity_id, contact_id)` (exigiria `dbt_utils`, projeto
+  ainda sem `packages.yml`) e teste "no máximo 1 primário por Opportunity" (sem violação nos dados
+  sintéticos, agregaria pouco agora).
+
+Próximo: staging da fonte de marketing (declarar source + 3 models), depois 2b (stitching marketing ↔ Lead).
