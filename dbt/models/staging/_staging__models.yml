@@ -241,7 +241,7 @@ models:
           - unique
           - not_null
       - name: utm_source
-        description: "Origem do tráfego (plataforma). 'newsletter' está no domínio do gerador, mas não foi sorteado nos dados atuais."
+        description: "Origem do tráfego (plataforma). 'newsletter' é canal próprio, com custo zero."
         data_tests:
           - not_null
           - accepted_values:
@@ -258,37 +258,25 @@ models:
         description: "Nome da campanha no padrão UTM (snake_case)."
         data_tests:
           - not_null
-  - name: stg_marketing_campaign_stats
-    description: "Totais de desempenho por campanha (impressões, cliques, custo) — grão campanha, sem dimensão de data. Base do custo no ROAS (2c)."
-    columns:
-      - name: campaign_id
-        description: "ID da campanha (FK para stg_marketing_campaigns). Chave primária — 1 linha por campanha."
-        data_tests:
-          - unique
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_marketing_campaigns')
-                field: campaign_id
-      - name: impressions
-        description: "Total de impressões da campanha."
+      - name: start_date
+        description: "Início da veiculação da campanha. Campanhas se sobrepõem no tempo, o que permite jornadas com várias campanhas."
         data_tests:
           - not_null
-      - name: clicks
-        description: "Total de cliques da campanha. Bate com a contagem de linhas em stg_marketing_click_events por campanha."
-        data_tests:
-          - not_null
-      - name: cost
-        description: "Custo total da campanha (number(10, 2)), derivado de CPC por canal no gerador. Canal próprio (newsletter) teria custo zero — o ROAS precisa tratar divisão por zero."
+      - name: end_date
+        description: "Fim da veiculação da campanha (inclusivo)."
         data_tests:
           - not_null
   - name: stg_marketing_click_events
-    description: "Cliques individuais em anúncios com UTM (tracking de primeira parte). O click_id nunca chega ao Salesforce — o vínculo com o Lead é pelos três UTMs + proximidade de tempo (2b)."
+    description: "Cliques individuais em anúncios com UTM (tracking de primeira parte, tipo GA4). Cada clique pertence a um visitante anônimo (visitor_id); a jornada de um visitante pode cruzar várias campanhas. O click_id nunca chega ao Salesforce: o vínculo com o Lead é via stg_marketing_form_submissions (visitor_id → e-mail)."
     columns:
       - name: click_id
         description: "ID do clique (UUID gerado na fonte). Chave primária."
         data_tests:
           - unique
+          - not_null
+      - name: visitor_id
+        description: "ID anônimo do visitante (cookie, equivalente ao user_pseudo_id do GA4). Agrupa cliques numa jornada. Sujeira proposital: em ~10% das jornadas os primeiros cliques ficam em outro visitor_id (troca de dispositivo), que nunca envia formulário — esses toques não são recuperáveis."
+        data_tests:
           - not_null
       - name: campaign_id
         description: "ID da campanha do clique (FK para stg_marketing_campaigns)."
@@ -305,7 +293,57 @@ models:
       - name: utm_campaign
         description: "Nome da campanha do clique."
       - name: clicked_at
-        description: "Data/hora do clique. TIMESTAMP_NTZ (sem fuso) na fonte, mas gerado em UTC — ao comparar com created_at do Lead (TIMESTAMP_TZ) na 2b, converter para o mesmo referencial."
+        description: "Data/hora do clique. TIMESTAMP_NTZ (sem fuso) na fonte, mas gerado em UTC — ao comparar com created_at do Lead ou submitted_at (TIMESTAMP_TZ) na 2b, converter para o mesmo referencial."
+        data_tests:
+          - not_null
+  - name: stg_marketing_form_submissions
+    description: "Envios de formulário (evento de conversão do tracking). Liga a jornada (visitor_id) ao Lead do CRM pelo e-mail. Inclui envios sem Lead correspondente (~5%: spam ou falha na integração com o CRM)."
+    columns:
+      - name: submission_id
+        description: "ID do envio (UUID gerado na fonte). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: visitor_id
+        description: "Visitante que enviou o formulário (FK lógica para stg_marketing_click_events.visitor_id)."
+        data_tests:
+          - not_null
+      - name: email
+        description: "E-mail normalizado (lower + trim). Chave do stitching com stg_leads."
+        data_tests:
+          - not_null
+      - name: email_raw
+        description: "E-mail como digitado no formulário. Sujeira proposital: ~10% com caixa ou espaço diferente do CRM — mantido para auditoria."
+      - name: submitted_at
+        description: "Data/hora do envio. TIMESTAMP_NTZ gerado em UTC. É a âncora de tempo da conversão: o created_at do Lead reflete a carga no CRM (todos em 21/set/2026), não o momento da conversão."
+        data_tests:
+          - not_null
+
+  - name: stg_marketing_campaign_daily_stats
+    description: "Desempenho por campanha e dia (impressões, cliques, custo), como a API de uma plataforma de anúncio entregaria. Grão único (campaign_id, stat_date), garantido pelo teste singular assert_marketing_daily_stats_grain_unique. Base do custo no CPL/ROAS (2c)."
+    columns:
+      - name: campaign_id
+        description: "ID da campanha (FK para stg_marketing_campaigns)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketing_campaigns')
+                field: campaign_id
+      - name: stat_date
+        description: "Dia de veiculação."
+        data_tests:
+          - not_null
+      - name: impressions
+        description: "Impressões no dia."
+        data_tests:
+          - not_null
+      - name: clicks
+        description: "Cliques contados pela plataforma no dia. Propositalmente 10–25% acima dos cliques rastreados no site (stg_marketing_click_events): ad blocker e bounce antes da tag disparar. É uma discrepância real entre fontes."
+        data_tests:
+          - not_null
+      - name: cost
+        description: "Custo do dia (number(10, 2)). Zero na campanha de newsletter (canal próprio): o ROAS/CPL precisa tratar divisão por zero."
         data_tests:
           - not_null
 

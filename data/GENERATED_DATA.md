@@ -31,43 +31,48 @@ seção 2).
 
 ## Fonte 2 — Eventos de marketing
 
-Gerado por `scripts/generate_marketing_events.py`, gravado em `data/marketing_campaigns.csv`,
-`data/marketing_click_events.csv`, `data/marketing_campaign_stats.csv` — artefato intermediário até
-a conta Snowflake existir (Fase 1 vai fazer `COPY INTO` desses arquivos pro schema `raw`).
+Gerado por `scripts/generate_marketing_events_v2.py` (26/out/2026), gravado em `data/` e carregado no
+`RAW` via `COPY INTO`. Substitui o v1 (`generate_marketing_events.py`, mantido como histórico), que
+ligava cada Lead a um único clique e não permitia atribuição multi-toque — ver PLANO.md seção 7.
 
-Representa uma fonte de **tracking de primeira parte** (tipo GA4/GTM do próprio site), não uma API de
-plataforma de anúncio — ver PLANO.md seção 4 pra a distinção entre as duas.
+Representa uma fonte de **tracking de primeira parte** (tipo GA4/GTM do próprio site), mais um export
+diário de custo por campanha no formato que uma plataforma de anúncio entregaria. O v2 **não toca no
+Salesforce**: lê os Leads e as 8 campanhas originais do backup do RAW de 16/out/2026.
 
 **Volumes:**
 | Dataset | Quantidade |
 |---|---|
-| Campanhas | 8, em 4 canais (Google Ads, Meta Ads, LinkedIn, newsletter) |
-| Eventos de clique | 1740 |
-| Impressões (derivadas, CTR 1–3%) | ~86 mil (agregado por campanha) |
-| Custo total (CPC por canal, newsletter = R$0) | ver `marketing_campaign_stats.csv` |
+| Campanhas (`marketing_campaigns.csv`) | 10 (8 originais + newsletter + LinkedIn), com início/fim sobrepostos |
+| Cliques (`marketing_click_events.csv`) | 2.052, de 999 visitantes (`visitor_id`) |
+| Envios de formulário (`marketing_form_submissions.csv`) | 93 (89 com Lead no CRM, 4 sem) |
+| Desempenho diário (`marketing_campaign_daily_stats.csv`) | 1.095 linhas (campanha × dia); newsletter com custo zero |
 
-**Mecanismo de vínculo clique → Lead (a parte mais importante de entender):**
-1. ~70% dos 125 Leads do Salesforce foram escolhidos como "vindos de marketing", cada um associado a
-   um evento de clique com timestamp anterior à criação do Lead
-2. Desses, só **~65%** (59 de 88, nessa geração) tiveram os UTMs gravados de volta no Salesforce
-   (campos customizados `UTM_Source__c`, `UTM_Medium__c`, `UTM_Campaign__c` no Lead) — os outros ~35%
-   simulam perda de rastreamento real (ad blocker, cookie limpo, troca de dispositivo)
-3. O evento de clique original **continua existindo** no dataset de marketing mesmo quando o UTM não
-   propagou pro Salesforce — é isso que cria o gap de atribuição que a Fase 2b (stitching) precisa
-   medir honestamente, em vez de fingir 100% de match
+**Mecanismo de vínculo jornada → Lead (a parte mais importante de entender):**
+1. Cada visitante tem uma jornada de 1–6 cliques em até 60 dias, cada clique numa campanha ativa naquela
+   data — a jornada pode cruzar campanhas (34 jornadas com primeiro toque ≠ último toque)
+2. O envio de formulário liga o `visitor_id` ao e-mail do Lead — é a chave do stitching
+3. Os 59 Leads com UTM no Salesforce (`UTM_Source__c`, `UTM_Medium__c`, `UTM_Campaign__c`) têm o
+   **último clique** na campanha do UTM — campo oculto de formulário captura o last-touch. Outros 30
+   Leads sem UTM também vieram de marketing (perda de propagação: 59/89 ≈ 66%); o resto é orgânico
+
+**Sujeira proposital:** e-mail do formulário com caixa/espaço diferente do CRM (~10%); troca de
+dispositivo em ~10% das jornadas (primeiros toques em outro `visitor_id`, irrecuperáveis); envios sem
+Lead no CRM (~5%); cliques depois da conversão (~20% dos visitantes que convertem); cliques da
+plataforma 10–25% acima dos rastreados no site.
 
 ## Reprodutibilidade
 
-Ambos os scripts usam `random.seed(42)` — rodar de novo gera a mesma sequência de valores "aleatórios"
-(embora IDs do Salesforce e UUIDs de clique sejam sempre novos, já que não são controlados pela seed).
+Ambos os scripts usam `random.seed(42)`. No CRM, os IDs do Salesforce são sempre novos (não controlados
+pela seed). O gerador de marketing v2 usa janela de datas fixa e UUIDs derivados da seed, então gera CSVs
+idênticos a cada execução.
 
 ## Como regenerar
 
 ```bash
 source venv/bin/activate
 python3 scripts/generate_sample_data.py
-python3 scripts/generate_marketing_events.py
+python3 scripts/generate_marketing_events_v2.py   # não toca no Salesforce
 ```
 
-**Atenção:** os dois scripts fazem `insert`/`update` direto na org Salesforce configurada no `.env` —
+**Atenção:** o `generate_sample_data.py` (e o v1 de marketing) fazem `insert`/`update` direto na org Salesforce configurada no `.env` —
 rodar de novo sem limpar a org antes duplica os dados.

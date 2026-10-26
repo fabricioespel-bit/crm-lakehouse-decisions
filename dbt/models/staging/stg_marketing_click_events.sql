@@ -4,6 +4,7 @@ with source as (
 renamed as (
     select
         CLICK_ID as click_id,
+        VISITOR_ID as visitor_id,
         CAMPAIGN_ID as campaign_id,
         UTM_SOURCE as utm_source,
         UTM_MEDIUM as utm_medium,

@@ -76,9 +76,11 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   Salesforce (90 Accounts no RAW vs. 71 ativas). Em vez de "corrigir" isso na ingestão, o RAW mantém o
   histórico e o **staging filtra `not ISDELETED`** — estado vivo só a partir do staging.
 - **Fonte de marketing modela tracking de primeira parte** (tipo GA4/GTM), não a API agregada de uma
-  plataforma de anúncio. É onde UTMs por pessoa existem de verdade. O `click_id` nunca chega ao
-  Salesforce; o que chega são três campos UTM customizados no Lead, e só em ~65% dos casos
-  (ad blocker, cookie limpo, troca de dispositivo).
+  plataforma de anúncio. Cada clique tem um `visitor_id` (cookie anônimo) e a jornada pode cruzar
+  várias campanhas; o envio de formulário liga a jornada ao Lead pelo e-mail. No Salesforce chega só o
+  UTM do último toque, e só em ~65% dos casos (ad blocker, cookie limpo, troca de dispositivo).
+  A primeira versão da fonte (um clique por Lead) foi refeita antes da 2b por não permitir
+  atribuição multi-toque — ver `PLANO.md`.
 
 ### Segurança e acesso
 - **Um usuário de serviço por ferramenta**, com role de menor privilégio: `AIRBYTE_ROLE` (escrita só
@@ -125,6 +127,8 @@ A sujeira é proposital e cada caso tem um tratamento explícito:
 | `CloseDate` < `CreatedDate` (~5% das fechadas) | `stg_opportunities` | Teste singular (`warn`) |
 | Opportunity sem Contact Role (39 de 200) | ausência de linha | Visível como `primary_contact_id` nulo; tratado nos marts |
 | UTM não propagado ao Lead (~35%) | `stg_leads` | Por design: a 2b mede a taxa de match em vez de forçar 100% |
+| E-mail do formulário com caixa/espaço diferente do CRM (~10%) | `stg_marketing_form_submissions` | `lower(trim())` no staging, `email_raw` mantido para auditoria |
+| Troca de dispositivo, cliques pós-conversão, cliques da plataforma > rastreados | fonte de marketing | Tratados na 2b/2c (só toques antes do envio contam) |
 
 **Princípio:** a atribuição de marketing será **explícita e honesta sobre o que não resolve** — a
 camada de stitching expõe a taxa de match como métrica de qualidade, em vez de fingir atribuição
@@ -165,9 +169,10 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 ├── data/                       # CSVs da fonte de marketing + GENERATED_DATA.md
 ├── scripts/
 │   ├── generate_sample_data.py       # popula o Salesforce (com sujeira configurável)
-│   └── generate_marketing_events.py  # campanhas, cliques, custo; grava UTM no Lead
+│   ├── generate_marketing_events.py     # v1 (histórico): um clique por Lead, grava UTM no Lead
+│   └── generate_marketing_events_v2.py  # jornadas multi-toque, envios de formulário, custo diário
 ├── dbt/
-│   ├── models/staging/         # 8 models + sources e testes em YAML
+│   ├── models/staging/         # 9 models + sources e testes em YAML
 │   ├── models/intermediate/    # int_account_id_mapping, int_accounts
 │   ├── seeds/staging/          # industry_mapping.csv
 │   ├── tests/                  # testes singulares
@@ -194,11 +199,12 @@ dbt docs generate && dbt docs serve
 
 ## Próximos passos
 
-- **2b — Stitching marketing ↔ Lead:** ligar cliques a Leads pela combinação dos três UTMs +
-  proximidade de tempo (clique anterior à criação do Lead), com `match_status` por Lead e teste de taxa
-  mínima de match.
+- **2b — Stitching marketing ↔ Lead:** ligar a jornada (`visitor_id`) ao Lead pelo e-mail normalizado,
+  com o UTM do Lead como fallback, considerando só toques anteriores ao envio; `match_status` por Lead
+  e teste de taxa mínima de match.
 - **2c — Marts:** funil (win rate por estágio, ciclo de venda) e ROAS por campanha com modelo de
-  atribuição explícito (first-touch), com divisão por custo tratada de forma defensiva.
+  atribuição explícito (first-touch, last-touch e linear lado a lado), com divisão por custo zero tratada
+  de forma defensiva.
 - **Fase 3 — CI/CD:** GitHub Actions rodando `dbt build` em PR (key-pair via secrets),
   `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`, `dbt docs` publicado no GitHub Pages.
 - Pelo menos um model `incremental`.

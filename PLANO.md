@@ -346,6 +346,9 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       `stg_marketing_campaigns`, `stg_marketing_campaign_stats`, `stg_marketing_click_events`. Fecha a 2a.
   - **2b — stitching (novo):** join de touchpoints de marketing a Lead/Opportunity via UTM/click_id, com
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
+    - [x] Fonte de marketing refeita com jornadas (26/out/2026, gerador v2) — pré-requisito da 2b: o v1
+      não permitia atribuição first/last-touch (ver seção 7).
+    - [ ] Stitching jornada (visitor_id) → Lead por e-mail, com UTM do Lead como fallback.
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
     atribuição explícito.
   - Testes dbt em todas as camadas (not-null, unique, relationships, customizados — incluindo teste que
@@ -518,6 +521,7 @@ cada um:
   (ver registro de 22/out abaixo).
 - [x] Fechar a staging do Salesforce: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles` (22/out).
 - [x] Staging da fonte de marketing (3 tabelas, 22/out) — 2a completa.
+- [x] Fonte de marketing v2 com jornadas multi-toque (26/out) — pré-requisito da 2b.
 - [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
 
 **Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
@@ -651,3 +655,55 @@ genéricos, 1 singular); 8 / 8 / 1.740 linhas. Perfil levantado antes no backup 
   rápido de perceber teste faltando.
 
 Próximo: Fase 2b — stitching marketing ↔ Lead (UTMs + proximidade de tempo, taxa de match como métrica).
+
+**26/out/2026 — fonte de marketing refeita (gerador v2) antes da 2b.** Ao desenhar o stitching, a
+leitura do `generate_marketing_events.py` (v1) mostrou que os dados não sustentavam atribuição
+realista: (1) cada Lead foi ligado a **um único** clique sorteado — sem jornada multi-toque, first-touch
+= last-touch sempre; (2) cliques sem identificador de visitante, então não dá para agrupar cliques da
+mesma pessoa; (3) campanhas "ativas" o período inteiro; (4) os 125 Leads têm o mesmo `CreatedDate`
+(21/set, Bulk API), então proximidade de tempo não desempata nada (~200 cliques candidatos por Lead);
+(5) o par Lead ↔ clique não foi salvo. Uma 2b sobre isso seria só um join de UTM. **Decisão (Fabricio):**
+refazer a fonte de marketing para ficar próxima do tracking real, sem tocar no Salesforce.
+
+- **`scripts/generate_marketing_events_v2.py`** — só biblioteca padrão; lê Leads e as 8 campanhas
+  originais do **backup do RAW de 16/out** (não autentica no Salesforce, não faz update). Janela fixa
+  2025-03-01 a 2026-08-31 e UUIDs derivados da seed (`uuid.UUID(int=random.getrandbits(128))`) —
+  o v1 usava datas relativas e `uuid4()`, então não era reprodutível; o v2 foi conferido gerando CSVs
+  idênticos em duas execuções. O v1 fica no repo como histórico.
+- **Modelo:** `visitor_id` (cookie anônimo, tipo `user_pseudo_id` do GA4) em cada clique; campanhas
+  com `start_date`/`end_date` sobrepostas (10–24 semanas); jornadas de 1–6 toques em até 60 dias,
+  cada toque numa campanha ativa na data; nova tabela `form_submissions` (`visitor_id`, `email`,
+  `submitted_at`) liga a jornada ao Lead **pelo e-mail**. Os 59 Leads com UTM no CRM têm o **último
+  clique na campanha do UTM** (campo oculto de formulário captura o last-touch); +30 Leads sem UTM
+  também vieram de marketing (perda de propagação, 59/89 ≈ 66%, coerente com os 65% de 21/set); ~36
+  orgânicos; 900 visitantes que nunca convertem. `submitted_at` é a âncora de tempo da conversão — o
+  `created_at` do Lead é a data de carga no CRM.
+- **Duas campanhas novas:** `newsletter/email` com custo zero (resolve a pendência da 2c sobre divisão
+  por zero, sem patch manual) e `linkedin/abm_decisores`.
+- **`campaign_stats` agregada substituída por `campaign_daily_stats`** (campanha × dia, como a API de
+  uma plataforma entregaria — a "Fonte A" adiada em 21/set); total por campanha sai de `sum()` no dbt.
+- **Sujeira proposital nova:** e-mail do formulário com caixa/espaço diferente do CRM (8 de 93 envios);
+  cross-device em ~10% das jornadas (primeiros toques em outro `visitor_id`, irrecuperáveis — o
+  first-touch fica errado sem que dê para saber); 4 envios sem Lead no CRM; 18 cliques **depois** da
+  conversão (não podem contar na atribuição); cliques da plataforma 10–25% acima dos rastreados no
+  site (ad blocker, bounce antes da tag).
+- **Volumes:** 10 campanhas, 2.052 cliques de 999 visitantes, 93 envios (89 com Lead), 1.095 linhas
+  diárias; 59/59 Leads com UTM com último clique batendo; 34 jornadas com first ≠ last touch.
+- **Carga:** `snow stage copy` para `@RAW.MARKETING_STAGE/v2/` + `create or replace` das tabelas +
+  `COPY INTO` com file format `MARKETING_CSV` (`trim_space = false` para preservar a sujeira dos
+  e-mails); `MARKETING_CAMPAIGN_STATS` removida. **Pegadinhas:** (1) `snow` está no `venv` e cada
+  comando do terminal roda num shell novo — o `source venv/bin/activate` precisa ir no mesmo comando;
+  (2) `snow stage copy` **não comprime** (diferente do `PUT` puro), os arquivos ficam `.csv` e não
+  `.csv.gz` no stage.
+- **dbt:** `stg_marketing_campaigns` (+ `start_date`/`end_date`), `stg_marketing_click_events`
+  (+ `visitor_id`), novos `stg_marketing_form_submissions` (`email` = `lower(trim())`, `email_raw` para
+  auditoria — mesmo padrão do `industry_raw`) e `stg_marketing_campaign_daily_stats`, teste singular
+  `assert_marketing_daily_stats_grain_unique`; `stg_marketing_campaign_stats` removido (arquivo + view
+  no Snowflake). `dbt build --select source:marketing+`: **PASS=32 WARN=0 ERROR=0**; contagens
+  conferidas por query (10 / 2.052 / 93 / 1.095, 8 e-mails sujos pegos pela normalização).
+  Pegadinha: o bloco YAML do model removido gera warnings `Did not find matching node for patch` e os
+  testes dele são ignorados em silêncio — apagar o model exige apagar o bloco também.
+
+Próximo: 2b — stitching jornada → Lead (e-mail normalizado, UTM do Lead como fallback, só toques
+anteriores ao envio), taxa de match por caminho; depois first/last/linear na 2c. Pendência mantida:
+não há elo Lead → Opportunity (`converted_*` nulos) — sem ele a 2c fica em CPL/Leads atribuídos.

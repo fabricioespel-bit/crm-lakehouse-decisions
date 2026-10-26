@@ -16,8 +16,9 @@ sources:
     schema: RAW
     tables:
       - name: MARKETING_CAMPAIGNS
-      - name: MARKETING_CAMPAIGN_STATS
-      - name: MARKETING_CLICK_EVENTS  
+      - name: MARKETING_CLICK_EVENTS
+      - name: MARKETING_FORM_SUBMISSIONS
+      - name: MARKETING_CAMPAIGN_DAILY_STATS 
 
   
     
