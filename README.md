@@ -43,7 +43,7 @@ flowchart TD
 |---|---|---|
 | **RAW** | Cópia fiel das fontes (8 tabelas) | ✅ |
 | **STAGING** | 1:1 com a fonte: tipos, snake_case, `not ISDELETED`, de-para de picklist | ✅ 8 models |
-| **INTERMEDIATE** | Regras de negócio: dedup de Accounts, stitching marketing ↔ Lead | 🟡 dedup pronto; stitching em andamento |
+| **INTERMEDIATE** | Regras de negócio: dedup de Accounts, stitching marketing ↔ Lead | ✅ dedup + stitching (4 models) |
 | **MARTS** | Funil (win rate, ciclo), ROAS com atribuição explícita | ⏳ |
 | **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | ⏳ |
 
@@ -126,9 +126,9 @@ A sujeira é proposital e cada caso tem um tratamento explícito:
 | Lead `Closed - Converted` sem conversão real (33) | `stg_leads` | Teste singular (`warn`); o elo Lead → Opportunity não pode vir dos campos `converted_*` |
 | `CloseDate` < `CreatedDate` (~5% das fechadas) | `stg_opportunities` | Teste singular (`warn`) |
 | Opportunity sem Contact Role (39 de 200) | ausência de linha | Visível como `primary_contact_id` nulo; tratado nos marts |
-| UTM não propagado ao Lead (~35%) | `stg_leads` | Por design: a 2b mede a taxa de match em vez de forçar 100% |
+| UTM não propagado ao Lead (~35%) | `stg_leads` | Jornada por e-mail recupera parte: match 71,2% vs. 47,2% só com UTM; teste `warn` abaixo de 60% |
 | E-mail do formulário com caixa/espaço diferente do CRM (~10%) | `stg_marketing_form_submissions` | `lower(trim())` no staging, `email_raw` mantido para auditoria |
-| Troca de dispositivo, cliques pós-conversão, cliques da plataforma > rastreados | fonte de marketing | Tratados na 2b/2c (só toques antes do envio contam) |
+| Troca de dispositivo, cliques pós-conversão, cliques da plataforma > rastreados | fonte de marketing | `touch_phase` na 2b: só toques antes do envio e dentro de 90 dias contam |
 
 **Princípio:** a atribuição de marketing será **explícita e honesta sobre o que não resolve** — a
 camada de stitching expõe a taxa de match como métrica de qualidade, em vez de fingir atribuição
@@ -173,7 +173,7 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 │   └── generate_marketing_events_v2.py  # jornadas multi-toque, envios de formulário, custo diário
 ├── dbt/
 │   ├── models/staging/         # 9 models + sources e testes em YAML
-│   ├── models/intermediate/    # int_account_id_mapping, int_accounts
+│   ├── models/intermediate/    # dedup de Accounts + stitching (conversões, toques, jornadas, atribuição)
 │   ├── seeds/staging/          # industry_mapping.csv
 │   ├── tests/                  # testes singulares
 │   └── macros/                 # generate_schema_name
@@ -199,9 +199,6 @@ dbt docs generate && dbt docs serve
 
 ## Próximos passos
 
-- **2b — Stitching marketing ↔ Lead:** ligar a jornada (`visitor_id`) ao Lead pelo e-mail normalizado,
-  com o UTM do Lead como fallback, considerando só toques anteriores ao envio; `match_status` por Lead
-  e teste de taxa mínima de match.
 - **2c — Marts:** funil (win rate por estágio, ciclo de venda) e ROAS por campanha com modelo de
   atribuição explícito (first-touch, last-touch e linear lado a lado), com divisão por custo zero tratada
   de forma defensiva.

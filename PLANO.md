@@ -348,7 +348,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     fallback e taxa de match exposta como métrica de qualidade (schema `intermediate`).
     - [x] Fonte de marketing refeita com jornadas (26/out/2026, gerador v2) — pré-requisito da 2b: o v1
       não permitia atribuição first/last-touch (ver seção 7).
-    - [ ] Stitching jornada (visitor_id) → Lead por e-mail, com UTM do Lead como fallback.
+    - [x] Stitching jornada (visitor_id) → Lead por e-mail, com UTM do Lead como fallback (27/out/2026) —
+      4 models intermediate + 3 testes singulares, taxa de match 71,2% (ver seção 7).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
     atribuição explícito.
   - Testes dbt em todas as camadas (not-null, unique, relationships, customizados — incluindo teste que
@@ -522,7 +523,7 @@ cada um:
 - [x] Fechar a staging do Salesforce: `stg_leads`, `stg_opportunities`, `stg_opportunity_contact_roles` (22/out).
 - [x] Staging da fonte de marketing (3 tabelas, 22/out) — 2a completa.
 - [x] Fonte de marketing v2 com jornadas multi-toque (26/out) — pré-requisito da 2b.
-- [ ] 2b — stitching marketing ↔ Lead (diferencial do projeto).
+- [x] 2b — stitching marketing ↔ Lead (27/out) — diferencial do projeto.
 
 **Se a decisão for não manter o Snowflake, entram também antes de 21/out:** marts mínimos (2c), CI com
 pelo menos uma execução verde registrada e `dbt docs` publicado no GitHub Pages (site estático,
@@ -707,3 +708,46 @@ refazer a fonte de marketing para ficar próxima do tracking real, sem tocar no 
 Próximo: 2b — stitching jornada → Lead (e-mail normalizado, UTM do Lead como fallback, só toques
 anteriores ao envio), taxa de match por caminho; depois first/last/linear na 2c. Pendência mantida:
 não há elo Lead → Opportunity (`converted_*` nulos) — sem ele a 2c fica em CPL/Leads atribuídos.
+
+**27/out/2026 — Fase 2b completa (stitching jornada → Lead).** Ao fechar as regras de negócio, duas
+decisões do Fabricio: (1) **re-engajamento** entra nos dados — envio posterior do mesmo Lead é comum em
+cenário real (demo depois do e-book) e muda a modelagem (conversão deixa de ser 1:1 com o Lead);
+(2) a camada precisa mostrar **o caminho dos insucessos**, não só o do sucesso (cliques e visitantes que
+não converteram ficam no modelo, classificados). Telefone como segundo identificador: adiado (só e-mail).
+
+- **Gerador v2 + re-engajamento:** `build_reengagement` com gerador próprio (`random.Random(43)`), para
+  não alterar nenhuma linha de aquisição já gerada — conferido: as linhas antigas ficam idênticas.
+  20% dos Leads de jornada voltam, até 2 envios extras, 15–120 dias depois, com 0–3 toques entre os envios.
+  +21 cliques e +20 envios (14 Leads re-engajados). Volumes atuais: 10 / 2.073 / 113 / 1.095.
+  Recarga: `snow stage copy` + `truncate` + `COPY INTO ... force = true`.
+- **Modelo (4 views em `intermediate`):**
+  - `int_marketing_conversions` — envio ↔ Lead por e-mail normalizado, numerado por Lead (pelo e-mail,
+    não pelo `visitor_id`, porque a pessoa pode voltar por outro dispositivo): `acquisition` /
+    `reengagement` / `unmatched`.
+  - `int_marketing_touches` — grão clique; cada clique vai para a **próxima** conversão do mesmo
+    visitante, dentro da janela `var('attribution_lookback_days')` = 90 (`dbt_project.yml`).
+    `touch_phase`: `pre_conversion` / `post_conversion` / `outside_window` / `no_conversion`;
+    `touch_number`, `touch_count`, `is_first_touch`/`is_last_touch` só em `pre_conversion`.
+  - `int_visitor_journeys` — grão visitante, desfecho `converted_lead` / `converted_no_lead` /
+    `not_converted` (o caminho dos insucessos).
+  - `int_lead_attribution` — grão Lead, `match_path` `journey` / `utm_only` / `unattributed`;
+    first-touch nulo em `utm_only` (o UTM só registra o último toque).
+- **Testes:** genéricos no YAML (chaves, `accepted_values` dos 4 status, `relationships`; o `unique` em
+  `lead_id` também pega duplicação no join de UTM) + singulares `assert_lead_utm_matches_campaign`
+  (UTM do Lead sem campanha, `error`), `assert_lead_last_touch_matches_utm` (último toque ≠ UTM,
+  `error`) e `assert_lead_attribution_rate` (match < 60%, `warn`).
+- **Resultado:** `dbt build --select int_marketing_conversions+ assert_lead_utm_matches_campaign`
+  **PASS=34 WARN=0 ERROR=0**. Query de validação bateu 100% com o esperado calculado em Python a partir
+  dos CSVs: conversões 89 / 20 / 4; toques 1.842 `no_conversion` / 213 `pre_conversion` (188 aquisição,
+  21 re-engajamento, 4 sem Lead) / 14 `post_conversion` / 4 `outside_window`; visitantes 906 / 89 / 4;
+  Leads 89 `journey` / 0 `utm_only` / 36 `unattributed`; 34 Leads com first ≠ last; 14 re-engajados
+  (7 re-engajamentos sem toque, voltaram direto); **taxa de match 71,2% vs. 47,2% só com UTM**.
+  `utm_only` = 0 é esperado (todo Lead com UTM tem envio de formulário nos dados); o caminho fica no
+  modelo para o caso real de envio perdido.
+- **Erros de digitação pegos na revisão (sem rodar):** `'outside_windown'` e `'no_converted'` (o mais
+  perigoso: não dá erro, só falha no `accepted_values` ou zera filtros em silêncio), CTE com nome
+  diferente do referenciado, `ref` para model inexistente, vírgulas/`select`/`group by` faltando.
+
+Próximo: 2c — marts (atribuição first/last/linear lado a lado, CPL por campanha com custo zero tratado).
+Pendência mantida: sem elo Lead → Opportunity (`converted_*` nulos), a 2c fica em CPL/Leads atribuídos
+— decidir se cria o elo (ex.: por e-mail do Contact Role) ou se assume a limitação.

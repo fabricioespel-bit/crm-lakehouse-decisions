@@ -23,3 +23,135 @@ models:
         data_tests:
           - unique
           - not_null
+  - name: int_marketing_conversions
+    description: "Envios de formulário ligados ao Lead pelo e-mail normalizado e numerados por Lead (pelo e-mail, não pelo visitor_id: a pessoa pode voltar por outro dispositivo). O 1º envio é a aquisição, os seguintes são re-engajamento; envio sem Lead é 'unmatched'."
+    columns:
+      - name: submission_id
+        description: "ID do envio. Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: visitor_id
+        description: "Visitante que enviou o formulário."
+        data_tests:
+          - not_null
+      - name: lead_id
+        description: "Lead com o mesmo e-mail. Nulo quando o envio não chegou ao CRM."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_leads')
+                field: lead_id
+      - name: conversion_number
+        description: "Ordem do envio dentro do Lead (ou do e-mail, quando não há Lead), por submitted_at."
+        data_tests:
+          - not_null
+      - name: conversion_type
+        description: "acquisition (1º envio do Lead), reengagement (envios seguintes) ou unmatched (sem Lead)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['acquisition', 'reengagement', 'unmatched']
+
+  - name: int_marketing_touches
+    description: "Um registro por clique, classificado em relação à próxima conversão do mesmo visitante. Cada clique contribui só para o próximo envio, dentro da janela de atribuição (var attribution_lookback_days). Inclui os cliques que não converteram, para análise de insucesso."
+    columns:
+      - name: click_id
+        description: "ID do clique. Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: touch_phase
+        description: "pre_conversion (dentro da janela, ligado a uma conversão), outside_window (a conversão veio depois da janela), post_conversion (visitante já converteu e não converteu de novo depois) ou no_conversion (visitante nunca converteu)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['pre_conversion', 'post_conversion', 'outside_window', 'no_conversion']
+      - name: submission_id
+        description: "Conversão para a qual o clique contribuiu. Preenchido só em pre_conversion."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_marketing_conversions')
+                field: submission_id
+      - name: touch_number
+        description: "Posição do clique na jornada da conversão (1 = primeiro toque). Nulo fora de pre_conversion."
+      - name: touch_count
+        description: "Total de toques da conversão. Nulo fora de pre_conversion."
+      - name: is_first_touch
+        description: "Primeiro toque da conversão (base do first-touch). Nulo fora de pre_conversion."
+      - name: is_last_touch
+        description: "Último toque da conversão (base do last-touch). Nulo fora de pre_conversion."
+
+  - name: int_visitor_journeys
+    description: "Uma linha por visitante com cliques: resumo da jornada (cliques, campanhas, primeiro/último clique) e o desfecho. Mostra tanto o caminho do sucesso quanto o dos insucessos."
+    columns:
+      - name: visitor_id
+        description: "ID anônimo do visitante. Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: conversion_count
+        description: "Envios de formulário do visitante (0 quando não converteu)."
+        data_tests:
+          - not_null
+      - name: lead_id
+        description: "Lead ligado à conversão do visitante."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_leads')
+                field: lead_id
+      - name: journey_outcome
+        description: "converted_lead, converted_no_lead (enviou formulário, mas o envio não virou Lead) ou not_converted."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['converted_lead', 'converted_no_lead', 'not_converted']
+
+  - name: int_lead_attribution
+    description: "Uma linha por Lead com a atribuição da aquisição. A jornada (e-mail → visitor_id → cliques) é o caminho principal e o UTM gravado no Lead é o fallback, que só conhece o último toque."
+    columns:
+      - name: lead_id
+        description: "ID do Lead. Chave primária (também garante que o join com UTM não duplicou linhas)."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_leads')
+                field: lead_id
+      - name: match_path
+        description: "journey (atribuído pela jornada), utm_only (só pelo UTM do Lead) ou unattributed."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['journey', 'utm_only', 'unattributed']
+      - name: acquisition_submission_id
+        description: "Envio que criou o Lead (1ª conversão)."
+        data_tests:
+          - unique
+      - name: first_touch_campaign_id
+        description: "Campanha do primeiro toque da aquisição. Nulo em utm_only (o UTM não registra o primeiro toque)."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_marketing_campaigns')
+                field: campaign_id
+      - name: last_touch_campaign_id
+        description: "Campanha do último toque da aquisição; em utm_only, a campanha do UTM."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_marketing_campaigns')
+                field: campaign_id
+      - name: utm_campaign_id
+        description: "Campanha indicada pelo UTM gravado no Lead. Validado pelos testes singulares assert_lead_utm_matches_campaign e assert_lead_last_touch_matches_utm."
+      - name: reengagement_count
+        description: "Envios posteriores à aquisição (re-engajamento)."
+        data_tests:
+          - not_null

@@ -43,6 +43,13 @@ RATE_ORPHAN_SUBMISSIONS = 0.05  # envios sem Lead no CRM (spam, falha na integra
 RATE_POST_CONVERSION = 0.20   # visitantes que voltam a clicar depois de converter
 PLATFORM_CLICK_FACTOR = (1.10, 1.25)  # plataforma conta mais cliques que o site rastreia
 
+# --- Reengajamento: Lead que já converteu volta e envia outro formulário (demo depois do e-book) ---
+REENGAGEMENT_SEED = 43         # gerador separado: não altera as jornadas de aquisição já geradas
+RATE_REENGAGEMENT = 0.20       # fração dos Leads que enviam pelo menos mais um formulário
+MAX_EXTRA_SUBMISSIONS = 2
+REENGAGEMENT_GAP_DAYS = (15, 120)
+REENGAGEMENT_TOUCHES_WEIGHTS = {0: 0.25, 1: 0.35, 2: 0.25, 3: 0.15}  # 0 = voltou direto, sem clique
+
 # --- Custo/desempenho (mesmas faixas do v1) ---
 CTR_RANGE = (0.01, 0.03)
 CPC_RANGES = {
@@ -53,9 +60,9 @@ CPC_RANGES = {
 }
 
 
-def new_id() -> str:
+def new_id(rng: random.Random = random) -> str:
     """UUID que segue a seed (o uuid4() do v1 mudava a cada execução)."""
-    return str(uuid.UUID(int=random.getrandbits(128), version=4))
+    return str(uuid.UUID(int=rng.getrandbits(128), version=4))
 
 
 def read_backup(table: str) -> list[dict]:
@@ -114,9 +121,9 @@ def random_moment_in(campaign: dict) -> datetime:
     )
 
 
-def make_click(visitor_id: str, campaign: dict, at: datetime) -> dict:
+def make_click(visitor_id: str, campaign: dict, at: datetime, rng: random.Random = random) -> dict:
     return {
-        "click_id": new_id(),
+        "click_id": new_id(rng),
         "visitor_id": visitor_id,
         "campaign_id": campaign["campaign_id"],
         "utm_source": campaign["utm_source"],
@@ -140,9 +147,9 @@ def earlier_touches(visitor_id: str, campaigns: list[dict], before: datetime, n:
     return clicks
 
 
-def dirty_email(email: str) -> str:
+def dirty_email(email: str, rng: random.Random = random) -> str:
     local, domain = email.split("@")
-    return random.choice([
+    return rng.choice([
         f"{local.capitalize()}@{domain}",
         email.upper(),
         f"{email} ",
@@ -195,10 +202,47 @@ def build_converting_journeys(leads: list[dict], campaigns: list[dict]) -> tuple
             "visitor_id": visitor_id,
             "email": email,
             "submitted_at": submitted_at,
+            "lead_email": lead["email"],  # só para o reengajamento, não vai para o CSV
         })
         clicks.extend(journey)
 
     return clicks, submissions
+
+
+def build_reengagement(submissions: list[dict], campaigns: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Novos envios de Leads que já converteram, cada um 15–120 dias depois do anterior, com 0–3
+    toques entre os dois envios. Usa um gerador próprio para não mudar as jornadas de aquisição."""
+    rng = random.Random(REENGAGEMENT_SEED)
+    window_end = datetime.combine(WINDOW_END, datetime.max.time())
+
+    clicks, new_submissions = [], []
+    for first in submissions:
+        if rng.random() >= RATE_REENGAGEMENT:
+            continue
+        previous_at = first["submitted_at"]
+        for _ in range(rng.randint(1, MAX_EXTRA_SUBMISSIONS)):
+            submitted_at = previous_at + timedelta(
+                days=rng.randint(*REENGAGEMENT_GAP_DAYS), seconds=rng.randint(0, 86399)
+            )
+            if submitted_at > window_end:
+                break
+            gap_seconds = int((submitted_at - previous_at).total_seconds())
+            n_touches = rng.choices(list(REENGAGEMENT_TOUCHES_WEIGHTS), weights=REENGAGEMENT_TOUCHES_WEIGHTS.values())[0]
+            for _ in range(n_touches):
+                at = previous_at + timedelta(seconds=rng.randint(3600, gap_seconds - 60))
+                options = active_campaigns(campaigns, at.date())
+                if options:
+                    clicks.append(make_click(first["visitor_id"], rng.choice(options), at, rng))
+
+            email = dirty_email(first["lead_email"], rng) if rng.random() < RATE_EMAIL_DIRTY else first["lead_email"]
+            new_submissions.append({
+                "submission_id": new_id(rng),
+                "visitor_id": first["visitor_id"],
+                "email": email,
+                "submitted_at": submitted_at,
+            })
+            previous_at = submitted_at
+    return clicks, new_submissions
 
 
 def build_orphan_submissions(campaigns: list[dict], n_converting: int) -> tuple[list[dict], list[dict]]:
@@ -280,7 +324,9 @@ def main():
     journey_clicks, submissions = build_converting_journeys(leads, campaigns)
     orphan_clicks, orphan_submissions = build_orphan_submissions(campaigns, len(submissions))
     clicks = journey_clicks + orphan_clicks + build_non_converting_visitors(campaigns)
-    submissions += orphan_submissions
+    reengagement_clicks, reengagement_submissions = build_reengagement(submissions, campaigns)
+    clicks += reengagement_clicks
+    submissions += orphan_submissions + reengagement_submissions
     clicks.sort(key=lambda c: c["event_timestamp"])
     submissions.sort(key=lambda s: s["submitted_at"])
     daily_stats = build_daily_stats(campaigns, clicks)

@@ -43,8 +43,8 @@ Salesforce**: lê os Leads e as 8 campanhas originais do backup do RAW de 16/out
 | Dataset | Quantidade |
 |---|---|
 | Campanhas (`marketing_campaigns.csv`) | 10 (8 originais + newsletter + LinkedIn), com início/fim sobrepostos |
-| Cliques (`marketing_click_events.csv`) | 2.052, de 999 visitantes (`visitor_id`) |
-| Envios de formulário (`marketing_form_submissions.csv`) | 93 (89 com Lead no CRM, 4 sem) |
+| Cliques (`marketing_click_events.csv`) | 2.073, de 999 visitantes (`visitor_id`) |
+| Envios de formulário (`marketing_form_submissions.csv`) | 113 (89 aquisições, 20 re-engajamentos de 14 Leads, 4 sem Lead no CRM) |
 | Desempenho diário (`marketing_campaign_daily_stats.csv`) | 1.095 linhas (campanha × dia); newsletter com custo zero |
 
 **Mecanismo de vínculo jornada → Lead (a parte mais importante de entender):**
@@ -54,6 +54,8 @@ Salesforce**: lê os Leads e as 8 campanhas originais do backup do RAW de 16/out
 3. Os 59 Leads com UTM no Salesforce (`UTM_Source__c`, `UTM_Medium__c`, `UTM_Campaign__c`) têm o
    **último clique** na campanha do UTM — campo oculto de formulário captura o last-touch. Outros 30
    Leads sem UTM também vieram de marketing (perda de propagação: 59/89 ≈ 66%); o resto é orgânico
+4. ~20% dos Leads de jornada voltam e enviam outro formulário (re-engajamento, até 2 vezes, 15–120 dias
+   depois, com 0–3 cliques entre os envios). Gerado com seed separada (43), sem alterar as aquisições
 
 **Sujeira proposital:** e-mail do formulário com caixa/espaço diferente do CRM (~10%); troca de
 dispositivo em ~10% das jornadas (primeiros toques em outro `visitor_id`, irrecuperáveis); envios sem

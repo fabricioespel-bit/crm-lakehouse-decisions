@@ -31,3 +31,6 @@ seeds:
     staging:
       +schema: staging
 
+vars:
+  attribution_lookback_days: 90
+
