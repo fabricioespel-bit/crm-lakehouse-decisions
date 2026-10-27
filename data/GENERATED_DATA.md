@@ -29,6 +29,20 @@ Essa sujeira é intencional — simula problemas reais de qualidade de dado em C
 o que justifica a camada `staging` do dbt fazer limpeza de verdade, não só tipagem (ver PLANO.md
 seção 2).
 
+**Conversão Lead → Opportunity (patch no RAW, 27/out/2026).** O gerador original não converteu nenhum
+Lead e usou e-mails únicos para Leads e Contacts, então não havia elo Lead → Opportunity.
+`scripts/generate_lead_conversions.py` (seed 44, reprodutível, não toca no Salesforce) lê o backup do
+RAW e os envios de formulário e grava dois CSVs aplicados com `MERGE` no RAW, simulando o sync depois
+do time de vendas trabalhar os Leads:
+- `salesforce_lead_conversions.csv` — 20 Leads convertidos em Opportunities já abertas
+  (`ISCONVERTED`, `CONVERTEDDATE`, `CONVERTED*ID`)
+- `salesforce_contact_email_updates.csv` — 8 Contacts criados "à mão" pelo vendedor com o e-mail do
+  Lead, sem conversão formal (elo só via e-mail → Contact Role); 4 com caixa diferente
+
+Os dois saem dos 33 Leads `Closed - Converted`; 5 seguem sem elo nenhum. A Opportunity é criada 3–45
+dias depois do envio de aquisição, exceto 1 Lead por caminho ligado a uma Opportunity aberta **antes**
+da aquisição (sujeira proposital). 7 das 28 Opportunities ligadas são ganhas (1.170.154,71).
+
 ## Fonte 2 — Eventos de marketing
 
 Gerado por `scripts/generate_marketing_events_v2.py` (26/out/2026), gravado em `data/` e carregado no
@@ -74,6 +88,7 @@ idênticos a cada execução.
 source venv/bin/activate
 python3 scripts/generate_sample_data.py
 python3 scripts/generate_marketing_events_v2.py   # não toca no Salesforce
+python3 scripts/generate_lead_conversions.py      # depois do v2 (lê os envios); aplicar no RAW via MERGE
 ```
 
 **Atenção:** o `generate_sample_data.py` (e o v1 de marketing) fazem `insert`/`update` direto na org Salesforce configurada no `.env` —

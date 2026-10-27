@@ -62,9 +62,11 @@ models:
       - name: last_name
         description: "Último nome do contato."
       - name: email
-        description: "E-mail do contato."
+        description: "E-mail normalizado (lower + trim). Chave do fallback contact_match do int_lead_opportunities (Lead não convertido cujo e-mail é de um Contact numa Opportunity)."
         data_tests:
           - not_null
+      - name: email_raw
+        description: "E-mail como digitado no Salesforce. Sujeira proposital: parte dos Contacts criados à mão pelo vendedor tem caixa diferente do e-mail do Lead — mantido para auditoria."
       - name: phone
         description: "Telefone do contato."
       - name: title
@@ -90,7 +92,7 @@ models:
         data_tests:
           - not_null
       - name: status
-        description: "Status do lead no funil (picklist Status). Inconsistência proposital: 33 Leads estão 'Closed - Converted' sem conversão real no Salesforce (is_converted = false, sem Opportunity) — acusado pelo teste singular assert_lead_status_matches_conversion (severity warn)."
+        description: "Status do lead no funil (picklist Status). Inconsistência proposital: dos 33 Leads 'Closed - Converted', 20 foram convertidos de verdade e 13 seguem sem conversão real (is_converted = false; 8 deles ligados à Opportunity só pelo e-mail do Contact, ver int_lead_opportunities) — acusado pelo teste singular assert_lead_status_matches_conversion (severity warn)."
         data_tests:
           - not_null
           - accepted_values:
@@ -114,7 +116,7 @@ models:
               arguments:
                 values: ['Education', 'Healthcare', 'Technology', 'Retail', 'Financial Services', 'Manufacturing']
       - name: is_converted
-        description: "Indica se o lead passou pela conversão do Salesforce (Lead → Account/Contact/Opportunity). Todos false nos dados sintéticos, mesmo para status 'Closed - Converted'."
+        description: "Indica se o lead passou pela conversão do Salesforce (Lead → Account/Contact/Opportunity). 20 Leads convertidos, aplicados no RAW pelo scripts/generate_lead_conversions.py (simula o sync pós-conversão, 27/out/2026)."
         data_tests:
           - not_null
       - name: utm_source
@@ -124,13 +126,28 @@ models:
       - name: utm_campaign
         description: "Campanha de tráfego do lead (campo customizado UTM_Campaign__c). Nulo esperado, mesma perda de rastreamento de utm_source."
       - name: converted_date
-        description: "Data de conversão do lead"
+        description: "Data da conversão do Lead. Nulo quando is_converted = false."
       - name: converted_account_id
-        description: "ID da Account convertida"
+        description: "Account em que o Lead foi convertido (FK para stg_accounts; pode ser uma Account duplicada)."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_accounts')
+                field: account_id
       - name: converted_contact_id
-        description: "ID do Contato convertido"
+        description: "Contact em que o Lead foi convertido (FK para stg_contacts)."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_contacts')
+                field: contact_id
       - name: converted_opportunity_id
-        description: "ID da Oportunidade convertida"
+        description: "Opportunity da conversão (FK para stg_opportunities). Elo principal Lead → Opportunity do int_lead_opportunities."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_opportunities')
+                field: opportunity_id
       - name: created_at
         description: "Data de criação do lead"
       - name: updated_at

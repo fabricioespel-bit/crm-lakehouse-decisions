@@ -350,6 +350,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       não permitia atribuição first/last-touch (ver seção 7).
     - [x] Stitching jornada (visitor_id) → Lead por e-mail, com UTM do Lead como fallback (27/out/2026) —
       4 models intermediate + 3 testes singulares, taxa de match 71,2% (ver seção 7).
+    - [x] Elo Lead → Opportunity (27/out/2026) — `int_lead_opportunities`, conversão nativa + fallback
+      por e-mail do Contact (ver seção 7).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
     atribuição explícito.
   - Testes dbt em todas as camadas (not-null, unique, relationships, customizados — incluindo teste que
@@ -751,3 +753,38 @@ não converteram ficam no modelo, classificados). Telefone como segundo identifi
 Próximo: 2c — marts (atribuição first/last/linear lado a lado, CPL por campanha com custo zero tratado).
 Pendência mantida: sem elo Lead → Opportunity (`converted_*` nulos), a 2c fica em CPL/Leads atribuídos
 — decidir se cria o elo (ex.: por e-mail do Contact Role) ou se assume a limitação.
+
+**27/out/2026 — elo Lead → Opportunity (pré-requisito de receita na 2c).** Decisão (Fabricio): criar a
+ligação em vez de limitar a 2c a CPL. O backup mostrou que não havia chave nenhuma: 0 de 125 e-mails de
+Lead batem com Contact (`fake.unique.email()` nos dois), 125 Leads com `ISCONVERTED = false`, e só 13
+`Company` = nome de Account (coincidência do faker). As datas das Opportunities (mar/2025–ago/2026)
+cobrem os envios de formulário (mai/2025–jul/2026), o que permite ligar respeitando a ordem no tempo.
+
+- **Origem (decisão):** script + patch no RAW em vez de converter de verdade no Salesforce — o Airbyte
+  foi encerrado e reextrair à mão mudaria o formato das tabelas (`_AIRBYTE_*`). O
+  `scripts/generate_lead_conversions.py` (stdlib, `random.seed(44)`, reprodutível) lê o backup de 16/out
+  e os envios de formulário e grava `data/salesforce_lead_conversions.csv` (20) e
+  `data/salesforce_contact_email_updates.csv` (8), aplicados com `MERGE` em `RAW.LEAD`
+  (`ISCONVERTED`, `CONVERTEDDATE`, `CONVERTED*ID`) e `RAW.CONTACT` (`EMAIL`), com
+  `SYSTEMMODSTAMP`/`LASTMODIFIEDDATE` = 2026-10-27T09:00Z — simula o próximo sync depois do time de
+  vendas trabalhar os Leads. Stage: `@RAW.MARKETING_STAGE/salesforce_patch/`. O backup de 16/out segue
+  sendo o RAW original (é o caminho para desfazer). MERGEs: 20 e 8 linhas, uma por ID.
+- **Caminhos (sobre os 33 `Closed - Converted` sem conversão):** 20 `converted` (conversão numa
+  Opportunity já aberta, com Contact Role → `ConvertedContactId`), 8 `contact_match` (vendedor criou
+  o Contact à mão com o e-mail do Lead; só Contacts numa única Opportunity), 5 seguem sem elo.
+  Opportunity criada 3–45 dias depois do envio de aquisição (1 caso caiu no fallback "mais próxima",
+  63 dias). **Sujeira:** 1 Lead por caminho ligado a Opportunity aberta **antes** da aquisição
+  (marketing influenciou, não originou) e 4 dos 8 e-mails de Contact com caixa diferente.
+- **dbt:** `stg_contacts` com `email` = `lower(trim())` + `email_raw`; `relationships` nos
+  `converted_*` do `stg_leads` (antes sem teste, eram nulos); novo `int_lead_opportunities` (grão
+  Lead, `opportunity_match_path` `converted` / `contact_match` / `no_opportunity`, Account mestre via
+  `int_account_id_mapping`, `is_opportunity_after_acquisition` comparando `created_at` TZ convertido
+  para NTZ UTC com `acquired_at`); teste singular `assert_lead_opportunity_after_acquisition` (`warn`).
+- **Resultado:** `dbt build --select stg_leads stg_contacts int_lead_opportunities` **PASS=32 WARN=4
+  ERROR=0** — WARNs esperados: `assert_lead_status_matches_conversion` caiu de 33 para 13,
+  `assert_lead_opportunity_after_acquisition` = 2, e os dois de `lead_source` (sujeira original).
+  Validação bateu 100%: 20 / 8 / 97; com Opportunity 18 depois da aquisição, 2 antes, 8 sem aquisição
+  (orgânicos); 7 Opportunities ganhas ligadas a Leads, **1.170.154,71** de receita.
+
+Próximo: 2c — marts (atribuição first/last/linear lado a lado, CPL e ROAS por campanha, custo zero
+da newsletter tratado; Opportunity anterior à aquisição fora do crédito de receita).

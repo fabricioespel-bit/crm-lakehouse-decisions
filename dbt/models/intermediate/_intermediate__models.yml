@@ -155,3 +155,47 @@ models:
         description: "Envios posteriores à aquisição (re-engajamento)."
         data_tests:
           - not_null
+
+  - name: int_lead_opportunities
+    description: "Uma linha por Lead com a Opportunity ligada a ele. Caminho principal: conversão nativa do Salesforce (converted_opportunity_id). Fallback: o vendedor não converteu, mas criou um Contact com o mesmo e-mail e o colocou na Opportunity (e-mail → Contact Role). Base da receita atribuída na 2c."
+    columns:
+      - name: lead_id
+        description: "ID do Lead. Chave primária."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_leads')
+                field: lead_id
+      - name: opportunity_match_path
+        description: "converted (conversão nativa), contact_match (e-mail do Contact → Contact Role) ou no_opportunity."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['converted', 'contact_match', 'no_opportunity']
+      - name: opportunity_id
+        description: "Opportunity ligada ao Lead. No contact_match, se o Contact está em mais de uma Opportunity, fica a primeira criada."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_opportunities')
+                field: opportunity_id
+      - name: account_id
+        description: "Account mestre da Opportunity (já deduplicada via int_account_id_mapping)."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_accounts')
+                field: account_id
+      - name: amount
+        description: "Valor da Opportunity."
+      - name: is_won
+        description: "Opportunity ganha (base da receita atribuída)."
+      - name: opportunity_created_at
+        description: "Criação da Opportunity (TIMESTAMP_TZ)."
+      - name: acquired_at
+        description: "Envio de formulário que criou o Lead (int_lead_attribution). Nulo para Lead sem jornada."
+      - name: is_opportunity_after_acquisition
+        description: "true quando a Opportunity foi criada depois da aquisição (marketing originou o negócio); false quando já estava aberta (marketing só influenciou, acusado pelo teste assert_lead_opportunity_after_acquisition, warn); nulo sem aquisição ou sem Opportunity."

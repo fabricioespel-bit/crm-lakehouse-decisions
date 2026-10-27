@@ -123,7 +123,8 @@ A sujeira é proposital e cada caso tem um tratamento explícito:
 | Accounts duplicadas (~9%) | `stg_accounts` | Dedup na intermediate + teste singular de contagem |
 | `Industry` inconsistente (`Tech`, `Health Care`…) | `stg_accounts` | Seed de de-para + `accepted_values` como alarme |
 | `LeadSource` nulo ou `Other` (~22%) | `stg_leads` | `not_null` + `accepted_values` com **`severity: warn`** — dado sujo esperado, não deve travar o pipeline |
-| Lead `Closed - Converted` sem conversão real (33) | `stg_leads` | Teste singular (`warn`); o elo Lead → Opportunity não pode vir dos campos `converted_*` |
+| Lead `Closed - Converted` sem conversão real (13 de 33) | `stg_leads` | Teste singular (`warn`); 8 deles recuperados pelo e-mail do Contact (`contact_match`) |
+| Opportunity aberta antes da aquisição do Lead (2) | `int_lead_opportunities` | Teste singular (`warn`); fica fora do crédito de receita do marketing |
 | `CloseDate` < `CreatedDate` (~5% das fechadas) | `stg_opportunities` | Teste singular (`warn`) |
 | Opportunity sem Contact Role (39 de 200) | ausência de linha | Visível como `primary_contact_id` nulo; tratado nos marts |
 | UTM não propagado ao Lead (~35%) | `stg_leads` | Jornada por e-mail recupera parte: match 71,2% vs. 47,2% só com UTM; teste `warn` abaixo de 60% |
@@ -170,10 +171,11 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 ├── scripts/
 │   ├── generate_sample_data.py       # popula o Salesforce (com sujeira configurável)
 │   ├── generate_marketing_events.py     # v1 (histórico): um clique por Lead, grava UTM no Lead
-│   └── generate_marketing_events_v2.py  # jornadas multi-toque, envios de formulário, custo diário
+│   ├── generate_marketing_events_v2.py  # jornadas multi-toque, envios de formulário, custo diário
+│   └── generate_lead_conversions.py     # elo Lead → Opportunity (patch no RAW, simula sync pós-conversão)
 ├── dbt/
 │   ├── models/staging/         # 9 models + sources e testes em YAML
-│   ├── models/intermediate/    # dedup de Accounts + stitching (conversões, toques, jornadas, atribuição)
+│   ├── models/intermediate/    # dedup de Accounts + stitching (conversões, toques, jornadas, atribuição, Lead → Opportunity)
 │   ├── seeds/staging/          # industry_mapping.csv
 │   ├── tests/                  # testes singulares
 │   └── macros/                 # generate_schema_name
