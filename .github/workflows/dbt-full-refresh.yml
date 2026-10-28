@@ -43,5 +43,9 @@ jobs:
       - name: Valida conexão
         run: dbt debug --target prod
 
+      - name: dbt source freshness
+        continue-on-error: true
+        run: dbt source freshness --target prod
+
       - name: dbt build --full-refresh (incremental + descendentes)
         run: dbt build --target prod --full-refresh --select stg_marketing_click_events+
