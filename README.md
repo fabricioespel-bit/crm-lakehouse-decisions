@@ -220,3 +220,4 @@ dbt docs generate && dbt docs serve
   funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
 - **Operação:** proteção da `main` exigindo o check `dbt-build`; `--full-refresh` agendado do model
   incremental; `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`.
+
