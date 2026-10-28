@@ -284,7 +284,7 @@ models:
         data_tests:
           - not_null
   - name: stg_marketing_click_events
-    description: "Cliques individuais em anúncios com UTM (tracking de primeira parte, tipo GA4). Cada clique pertence a um visitante anônimo (visitor_id); a jornada de um visitante pode cruzar várias campanhas. O click_id nunca chega ao Salesforce: o vínculo com o Lead é via stg_marketing_form_submissions (visitor_id → e-mail)."
+    description: "Cliques individuais em anúncios com UTM (tracking de primeira parte, tipo GA4). Cada clique pertence a um visitante anônimo (visitor_id); a jornada de um visitante pode cruzar várias campanhas. O click_id nunca chega ao Salesforce: o vínculo com o Lead é via stg_marketing_form_submissions (visitor_id → e-mail). Materializado como incremental (merge por click_id, reprocessa os últimos click_events_lookback_days dias para eventos atrasados): é a única fonte append-only com volume crescente. O int_marketing_touches continua view porque uma conversão nova reclassifica cliques antigos."
     columns:
       - name: click_id
         description: "ID do clique (UUID gerado na fonte). Chave primária."

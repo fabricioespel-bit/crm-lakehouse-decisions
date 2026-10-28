@@ -114,6 +114,10 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   ponto flutuante acumula erro em somas).
 - **Relacionamentos apontam staging → staging**, nunca staging → intermediate, para respeitar o fluxo
   do DAG e não acusar órfãos falsos.
+- **Incremental só onde é seguro.** `stg_marketing_click_events` é incremental (merge por `click_id`,
+  reprocessa os últimos 3 dias para evento atrasado — testado com cliques fictícios no RAW). O
+  `int_marketing_touches`, que parece o candidato óbvio, continua view: uma conversão nova reclassifica
+  cliques antigos, e um incremental por janela de data os deixaria errados em silêncio.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:
@@ -206,4 +210,3 @@ dbt docs generate && dbt docs serve
   funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
 - **Fase 3 — CI/CD:** GitHub Actions rodando `dbt build` em PR (key-pair via secrets),
   `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`, `dbt docs` publicado no GitHub Pages.
-- Pelo menos um model `incremental`.

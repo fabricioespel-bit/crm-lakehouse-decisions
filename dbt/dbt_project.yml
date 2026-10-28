@@ -33,4 +33,5 @@ seeds:
 
 vars:
   attribution_lookback_days: 90
+  click_events_lookback_days: 3
 

@@ -359,6 +359,7 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     - [x] Funil de vendas (28/out/2026) — `fct_opportunities` e `mart_sales_funnel` por origem (ver seção 7).
   - Testes dbt em todas as camadas (not-null, unique, relationships, customizados — incluindo teste que
     monitora a taxa de atribuição do stitching); pelo menos um model `materialized='incremental'`.
+    - [x] Model incremental (28/out/2026) — `stg_marketing_click_events` (ver seção 7).
 - **Fase 3 — CI/CD:** pipeline GitHub Actions (`dbt build`/`dbt test` em PR); autenticação via key-pair;
   `dbt docs generate` publicado via GitHub Pages.
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
@@ -872,3 +873,26 @@ e pipeline em aberto, quebrados pela **origem** da Opportunity.
 
 Próximo: Fase 3 — CI/CD (GitHub Actions com `dbt build` em PR, key-pair via secrets, `dbt docs` no
 GitHub Pages) e pelo menos um model `incremental` (pendente da Fase 2).
+
+**28/out/2026 — Fase 3, passo 1: model incremental.** Modo de trabalho de volta ao padrão (Fabricio
+executa, Claude orienta). **Escolha:** `stg_marketing_click_events` (evento append-only, chave
+`click_id`, única fonte com volume crescente), e **não** o `int_marketing_touches`: uma conversão nova
+reclassifica cliques antigos (`no_conversion` → `pre_conversion`, e muda o `touch_number` dos outros
+toques da conversão), então um incremental por janela de data deixaria cliques antigos errados em
+silêncio — ele fica view.
+- **Config:** `materialized='incremental'`, `unique_key='click_id'`, `incremental_strategy='merge'`,
+  `on_schema_change='fail'` (para em vez de divergir em silêncio); no incremental, reprocessa
+  `EVENT_TIMESTAMP >= max(clicked_at) - var('click_events_lookback_days')` (3, no `dbt_project.yml`)
+  para pegar evento atrasado. O `config()` no arquivo sobrepõe o `+materialized: view` da pasta.
+- **Validação:** `--full-refresh` → `SUCCESS 12120`, PASS=7; execução incremental → `SUCCESS 87` (a
+  janela de 3 dias), `unique` de `click_id` passando. **Teste do evento atrasado:** 2 cliques
+  fictícios inseridos no RAW (1 e 10 dias antes do mais recente) → incremental `SUCCESS 1`; RAW 12.122,
+  staging 12.121, só o `teste-atrasado-1d` entrou. Limpeza: delete no RAW (2 linhas) + `--full-refresh`
+  → `SUCCESS 12120`, PASS=7.
+- **Limitações registradas:** (1) evento atrasado além da janela não entra; (2) o merge só insere e
+  atualiza, nunca apaga — registro removido da fonte fica na tabela. As duas exigem `--full-refresh`
+  periódico (candidato a job agendado no CI da Fase 3). Observação: o número de linhas que o dbt mostra
+  num merge não foi consistente entre as rodadas (87 na primeira incremental, 1 na do teste) — a
+  validação foi feita por contagem na tabela, não por esse número.
+
+Próximo: Fase 3, passo 2 — CI no GitHub Actions (`dbt build` em PR, key-pair via secrets).
