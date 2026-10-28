@@ -367,6 +367,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   - [x] `dbt docs` no GitHub Pages (28/out/2026) — https://fabricioespel-bit.github.io/crm-lakehouse-decisions/
   - [x] Proteção da `main` (28/out/2026) — `dbt-build` obrigatório, gate de mudança em `dbt/**` no
     workflow (ver seção 7).
+  - [x] Full-refresh semanal do incremental (28/out/2026) — `.github/workflows/dbt-full-refresh.yml`,
+    `DBT_PROD_USER`, secrets no environment `production` (ver seção 7).
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
   tabela/coluna pensadas pra consumo por agente de IA, no mesmo espírito do `data-lake-engineering-decisions`)
   — só entra se sobrar tempo dentro da janela do trial, não é objetivo central do projeto.
@@ -969,3 +971,25 @@ incremental; `dbt source freshness`; Fase 4 (stretch).
 
 Próximo (opcional): `--full-refresh` agendado do model incremental; `dbt source freshness`; Fase 4
 (stretch).
+
+**28/out/2026 — Full-refresh semanal do incremental.** Duas decisões (Fabricio):
+- **Por quê:** o `stg_marketing_click_events` só reprocessa os últimos 3 dias; evento mais atrasado que
+  isso, ou deletado no RAW, deixa a tabela divergente da fonte em silêncio. Recriar do zero
+  periodicamente limita a deriva a uma semana.
+- **Escopo e frequência:** `dbt build --target prod --full-refresh --select stg_marketing_click_events+`
+  aos domingos 09:00 UTC (+ `workflow_dispatch`) — o incremental e os descendentes, com os testes; o lado
+  Salesforce fica de fora (não tem incremental, seria custo à toa). Diário descartado: o dado é estático.
+- **Credencial dedicada:** `DBT_PROD_USER` (type service, key-pair própria `dbt_prod_rsa_key`) com a
+  `DBT_ROLE` — a `DBT_CI_ROLE` é só leitura nos schemas reais, e reusar a chave do `DBT_USER` local
+  colocaria a mesma chave em dois lugares. Novo target `prod` no `dbt/ci/profiles.yml` (sem prefixo).
+- **Secrets no environment `production`** (`SNOWFLAKE_PROD_USER`, `SNOWFLAKE_PROD_PRIVATE_KEY`), com
+  `deployment_branch_policy.protected_branches = true`: só a `main` acessa. Como secret de repositório,
+  um PR que alterasse um workflow conseguiria ler a credencial de escrita.
+- **Validação:** `dbt debug --target prod` local OK; PR #5 com CI verde (1m17s); execução manual depois
+  do merge verde em 58s — `staging.stg_marketing_click_events` recriado com 12.120 linhas (bate com o
+  total de cliques), **PASS=70 WARN=1** (o warn conhecido `assert_lead_opportunity_after_acquisition`).
+- **Pontos de atenção:** o GitHub desativa workflows agendados depois de 60 dias sem atividade no repo;
+  anotação de depreciação do Node 20 em `actions/checkout@v4`/`setup-python@v5` (vale subir de versão
+  nos três workflows numa próxima).
+
+Próximo (opcional): `dbt source freshness`; Fase 4 (stretch).

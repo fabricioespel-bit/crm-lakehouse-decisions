@@ -67,7 +67,7 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
 | **Snowflake** | Data warehouse | Separação storage/compute, key-pair auth, resource monitor para governança de custo |
 | **dbt Core** (`dbt-snowflake` 1.12) | Transformação, testes, documentação | CLI versionado no Git, CI próprio em vez do CI embutido do dbt Cloud |
 | **Snowflake CLI** (`snow`) / **Salesforce CLI** (`sf`) | Operação e validação | Conferência de contagens e qualidade por SQL/SOQL, não só pela UI |
-| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`) + deploy do `dbt docs` no Pages |
+| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`), deploy do `dbt docs` no Pages, full-refresh semanal |
 
 ---
 
@@ -132,6 +132,10 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   workflow roda em todo PR, mas o primeiro passo olha o diff: PR que não toca `dbt/**` sai verde em
   segundos sem acessar o Snowflake. Filtrar por `paths` no gatilho travaria o merge desses PRs — o
   check obrigatório nunca reportaria.
+- **Full-refresh semanal do incremental.** O merge de 3 dias não pega evento mais atrasado nem deleção
+  no RAW, então um job agendado recria `stg_marketing_click_events` e seus descendentes todo domingo. Ele
+  escreve nos schemas reais com usuário próprio (`DBT_PROD_USER`), e a credencial fica num environment
+  do GitHub liberado só para a `main` — um PR não consegue lê-la.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:
