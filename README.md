@@ -136,6 +136,12 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   no RAW, então um job agendado recria `stg_marketing_click_events` e seus descendentes todo domingo. Ele
   escreve nos schemas reais com usuário próprio (`DBT_PROD_USER`), e a credencial fica num environment
   do GitHub liberado só para a `main` — um PR não consegue lê-la.
+- **Freshness das fontes, mesmo com a ingestão parada.** Teste de qualidade não pega dado velho — só o
+  `dbt source freshness` olha o tempo. Salesforce é medido pela hora da extração do Airbyte
+  (`_AIRBYTE_EXTRACTED_AT`), não pela modificação na origem: o patch manual de Leads mexeu no
+  `SYSTEMMODSTAMP` e faria a fonte parecer fresca. Como a ingestão deste projeto foi encerrada de
+  propósito, o check roda no job semanal acusando `ERROR STALE` sem bloquear o full-refresh — numa
+  ingestão viva, ele travaria o job.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:

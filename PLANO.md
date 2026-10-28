@@ -369,6 +369,7 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     workflow (ver seção 7).
   - [x] Full-refresh semanal do incremental (28/out/2026) — `.github/workflows/dbt-full-refresh.yml`,
     `DBT_PROD_USER`, secrets no environment `production` (ver seção 7).
+  - [x] `dbt source freshness` (28/out/2026) — no job semanal, sem bloquear (ver seção 7).
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
   tabela/coluna pensadas pra consumo por agente de IA, no mesmo espírito do `data-lake-engineering-decisions`)
   — só entra se sobrar tempo dentro da janela do trial, não é objetivo central do projeto.
@@ -993,3 +994,26 @@ Próximo (opcional): `--full-refresh` agendado do model incremental; `dbt source
   nos três workflows numa próxima).
 
 Próximo (opcional): `dbt source freshness`; Fase 4 (stretch).
+
+**28/out/2026 — `dbt source freshness`.** Decisão (Fabricio): configurar mesmo com a ingestão parada,
+como demonstração — teste de qualidade não detecta dado velho (`not_null`/`unique` passam), só o
+freshness olha o tempo; ele acusar a fonte parada é o comportamento correto aqui.
+- **`loaded_at_field`:** Salesforce por `_AIRBYTE_EXTRACTED_AT` (hora da extração), não `SYSTEMMODSTAMP`
+  — o patch de 27/out mexeu no `SYSTEMMODSTAMP` de LEAD/CONTACT sem passar pelo Airbyte e faria uma
+  fonte parada parecer fresca. Marketing não tem coluna de carga (o `COPY_HISTORY` do Snowflake tem,
+  mas o dbt não lê): mede pelo evento mais recente (`EVENT_TIMESTAMP`, `SUBMITTED_AT`,
+  `STAT_DATE::timestamp`); adicionar `_LOADED_AT` no `COPY INTO` exigiria recarregar o RAW.
+  `MARKETING_CAMPAIGNS` sem freshness (cadastro).
+- **Limites** (cadência de ingestão real): Salesforce 24h/48h (sync diário); cliques 12h/24h;
+  formulários 24h/48h; custo diário 2/3 dias (plataforma entrega D-1). Sintaxe dbt 1.12: `freshness` e
+  `loaded_at_field` dentro de `config:`.
+- **Onde roda:** passo `dbt source freshness --target prod` no `dbt-full-refresh.yml`, antes do build,
+  com `continue-on-error`. Fora do CI de PR (freshness depende da ingestão, não do código do PR).
+- **Validação:** local e na execução manual (run 40733751276): 8 de 8 `ERROR STALE` — Salesforce 36
+  dias (sync de 22/set), formulários 90, cliques 148, custo diário 149 — e o full-refresh seguiu
+  (PASS=70 WARN=1), job verde em 1m22s.
+- **Pegadinha:** com `continue-on-error` o passo aparece com ✓ (conclusion `success`, outcome
+  `failure`); a falha só fica visível na anotação "Process completed with exit code 1" e no log.
+  Numa ingestão viva, tirar o `continue-on-error` para o job falhar e notificar.
+
+Próximo (opcional): Fase 4 (stretch); subir `actions/checkout`/`setup-python` (aviso do Node 20).
