@@ -98,3 +98,85 @@ models:
         description: "Receita last-touch / custo. Nulo quando o custo é 0."
       - name: linear_roas
         description: "Receita linear / custo. Nulo quando o custo é 0."
+
+  - name: fct_opportunities
+    description: "Uma linha por Opportunity, com Account mestre, desfecho, ciclo de venda e origem (opportunity_source), que vem do elo Lead → Opportunity. Sem OpportunityHistory no RAW, cada Opportunity só tem o estágio atual: não dá para medir conversão entre estágios, só o retrato do pipeline e o win rate sobre as fechadas."
+    columns:
+      - name: opportunity_id
+        description: "ID da Opportunity. Chave primária (garante também que o join com Leads não duplicou linhas)."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_opportunities')
+                field: opportunity_id
+      - name: account_id
+        description: "Account mestre (deduplicada via int_account_id_mapping)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_accounts')
+                field: account_id
+      - name: stage_name
+        description: "Estágio atual (picklist StageName)."
+      - name: amount
+        description: "Valor da Opportunity."
+      - name: outcome
+        description: "open, won ou lost."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['open', 'won', 'lost']
+      - name: sales_cycle_days
+        description: "Dias entre a criação e o fechamento (só Opportunity fechada). Negativo quando CloseDate < CreatedDate (sujeira proposital, acusada por assert_opportunities_close_date_after_created)."
+      - name: is_valid_sales_cycle
+        description: "false quando o ciclo é negativo; essas Opportunities ficam fora das médias de ciclo. Nulo para Opportunity aberta."
+      - name: lead_id
+        description: "Lead ligado à Opportunity (int_lead_opportunities). Se houver mais de um, fica o que chegou primeiro."
+      - name: opportunity_match_path
+        description: "Como o Lead foi ligado: converted ou contact_match. Nulo sem Lead."
+      - name: first_touch_campaign_id
+        description: "Campanha do primeiro toque da aquisição do Lead."
+      - name: last_touch_campaign_id
+        description: "Campanha do último toque da aquisição do Lead."
+      - name: opportunity_source
+        description: "marketing_sourced (Lead com jornada e Opportunity criada depois da aquisição), marketing_influenced (Opportunity já aberta antes da aquisição), lead_untracked (Lead sem jornada rastreada) ou no_lead."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['marketing_sourced', 'marketing_influenced', 'lead_untracked', 'no_lead']
+
+  - name: mart_sales_funnel
+    description: "Funil de vendas por origem da Opportunity: volume, abertas/ganhas/perdidas, win rate sobre as fechadas, pipeline em aberto, receita ganha e ciclo de venda das ganhas (sem as datas ilógicas). Totais conferidos contra o staging por assert_sales_funnel_reconciles."
+    columns:
+      - name: opportunity_source
+        description: "Origem da Opportunity (ver fct_opportunities). Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: opportunities
+        description: "Total de Opportunities da origem."
+      - name: open_opportunities
+        description: "Opportunities em aberto."
+      - name: won_opportunities
+        description: "Opportunities ganhas."
+      - name: lost_opportunities
+        description: "Opportunities perdidas."
+      - name: win_rate
+        description: "Ganhas / (ganhas + perdidas). Nulo quando a origem não tem nenhuma Opportunity fechada."
+      - name: open_pipeline_amount
+        description: "Valor total das Opportunities em aberto."
+      - name: won_amount
+        description: "Receita das Opportunities ganhas."
+      - name: avg_won_amount
+        description: "Ticket médio das ganhas."
+      - name: median_won_cycle_days
+        description: "Mediana do ciclo de venda das ganhas, em dias, sem os ciclos negativos."
+      - name: avg_won_cycle_days
+        description: "Média do ciclo de venda das ganhas, em dias, sem os ciclos negativos."
+      - name: invalid_cycle_count
+        description: "Opportunities fechadas com ciclo negativo (CloseDate < CreatedDate), excluídas das métricas de ciclo."

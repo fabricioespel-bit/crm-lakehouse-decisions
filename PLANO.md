@@ -356,7 +356,7 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     atribuição explícito.
     - [x] Atribuição + desempenho por campanha (28/out/2026) — `fct_lead_campaign_attribution` e
       `mart_campaign_performance`, first/last/linear lado a lado (ver seção 7).
-    - [ ] Funil de vendas — `fct_opportunities`, win rate, ciclo de venda, originado por marketing vs. resto.
+    - [x] Funil de vendas (28/out/2026) — `fct_opportunities` e `mart_sales_funnel` por origem (ver seção 7).
   - Testes dbt em todas as camadas (not-null, unique, relationships, customizados — incluindo teste que
     monitora a taxa de atribuição do stitching); pelo menos um model `materialized='incremental'`.
 - **Fase 3 — CI/CD:** pipeline GitHub Actions (`dbt build`/`dbt test` em PR); autenticação via key-pair;
@@ -845,3 +845,30 @@ tinha sido pego porque os builds anteriores não selecionavam o model) — corri
 
 Próximo: 2c, bloco 2 — funil de vendas (`fct_opportunities`, win rate, ciclo, originado por
 marketing vs. resto).
+
+**28/out/2026 — 2c, bloco 2: funil de vendas. Fase 2c completa.** Limitação assumida: o RAW não tem
+`OpportunityHistory`, então cada Opportunity só tem o estágio atual — **win rate por estágio não é
+calculável** (prometido no README original). O funil mede win rate sobre as fechadas, ciclo de venda
+e pipeline em aberto, quebrados pela **origem** da Opportunity.
+- `fct_opportunities` — grão Opportunity: Account mestre, `outcome` (`open`/`won`/`lost`),
+  `sales_cycle_days` (só fechadas) + `is_valid_sales_cycle` (ciclo negativo = sujeira `CloseDate` <
+  `CreatedDate`, marcado e fora das médias, não apagado), Lead ligado (o primeiro, se houver mais de
+  um), campanhas de first/last touch e `opportunity_source`: `marketing_sourced` (Lead com jornada,
+  Opportunity criada depois da aquisição), `marketing_influenced` (já aberta antes), `lead_untracked`
+  (Lead sem jornada) ou `no_lead`.
+- `mart_sales_funnel` — grão origem: abertas/ganhas/perdidas, `win_rate` com `nullif` (sem fechada →
+  nulo, não 0), pipeline em aberto, receita ganha, ticket médio, mediana/média do ciclo das ganhas.
+  Teste singular `assert_sales_funnel_reconciles` (mart = staging em contagem e receita ganha).
+- **Resultado:** `dbt build --select fct_opportunities+` **PASS=14 WARN=0** (200 / 4 linhas). Validação
+  bateu 100% com o calculado em Python do backup + CSVs: `no_lead` 172 (20 ganhas / 10 perdidas, win
+  rate 0,667, 2.793.764,66, ciclo mediano 97); `marketing_sourced` 18 (6 / 0, 1,000, 1.152.370,66,
+  173); `lead_untracked` 8 (1 / 1, 0,500, 17.784,05, 34); `marketing_influenced` 2 (abertas, win rate
+  nulo). 2 ciclos inválidos.
+- **Leitura com ressalva:** `marketing_sourced` com 6/6 ganhas e ciclo mais longo é amostra pequena
+  do sorteio do gerador — o valor do mart é a separação por origem, não provar que marketing converte
+  melhor.
+- Os arquivos deste bloco foram escritos pelo Claude a pedido do Fabricio ("pode montar vc esses
+  arquivos").
+
+Próximo: Fase 3 — CI/CD (GitHub Actions com `dbt build` em PR, key-pair via secrets, `dbt docs` no
+GitHub Pages) e pelo menos um model `incremental` (pendente da Fase 2).

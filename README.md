@@ -44,7 +44,7 @@ flowchart TD
 | **RAW** | Cópia fiel das fontes (8 tabelas) | ✅ |
 | **STAGING** | 1:1 com a fonte: tipos, snake_case, `not ISDELETED`, de-para de picklist | ✅ 8 models |
 | **INTERMEDIATE** | Regras de negócio: dedup de Accounts, stitching marketing ↔ Lead | ✅ dedup + stitching (4 models) |
-| **MARTS** | Funil (win rate, ciclo), ROAS com atribuição explícita | 🟡 atribuição first/last/linear + desempenho por campanha prontos; funil em andamento |
+| **MARTS** | Funil (win rate, ciclo), ROAS com atribuição explícita | ✅ atribuição first/last/linear, CPL/ROAS por campanha, funil por origem |
 | **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | ⏳ |
 
 Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singulares), todos passando
@@ -176,7 +176,7 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 ├── dbt/
 │   ├── models/staging/         # 9 models + sources e testes em YAML
 │   ├── models/intermediate/    # dedup de Accounts + stitching (conversões, toques, jornadas, atribuição, Lead → Opportunity)
-│   ├── models/marts/           # atribuição Lead × campanha, desempenho por campanha (CPL/ROAS por modelo)
+│   ├── models/marts/           # atribuição Lead × campanha, CPL/ROAS por campanha, Opportunities e funil por origem
 │   ├── seeds/staging/          # industry_mapping.csv
 │   ├── tests/                  # testes singulares
 │   └── macros/                 # generate_schema_name
@@ -202,9 +202,8 @@ dbt docs generate && dbt docs serve
 
 ## Próximos passos
 
-- **2c — Funil de vendas:** `fct_opportunities` com win rate por estágio e ciclo de venda, separando
-  negócio originado por marketing do resto (a atribuição first/last/linear e o CPL/ROAS por campanha já
-  estão prontos).
+- **Histórico de estágios:** extrair `OpportunityHistory` para medir conversão entre estágios — hoje o
+  funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
 - **Fase 3 — CI/CD:** GitHub Actions rodando `dbt build` em PR (key-pair via secrets),
   `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`, `dbt docs` publicado no GitHub Pages.
 - Pelo menos um model `incremental`.
