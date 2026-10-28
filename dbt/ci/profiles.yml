@@ -11,3 +11,15 @@ crm_lakehouse:
       warehouse: CRM_LAKEHOUSE_WH
       schema: STAGING
       threads: 4
+    # docs: mesma credencial, mas sem o prefixo CI_PR* (o macro só prefixa no target ci), para o
+    # catálogo descrever os schemas de verdade; a role só tem leitura neles
+    docs:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY') }}"
+      role: DBT_CI_ROLE
+      database: CRM_LAKEHOUSE
+      warehouse: CRM_LAKEHOUSE_WH
+      schema: STAGING
+      threads: 4

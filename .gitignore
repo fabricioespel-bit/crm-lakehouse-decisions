@@ -7,3 +7,5 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 
+# ID anônimo de telemetria que o dbt cria ao lado do profiles.yml
+**/.user.yml
