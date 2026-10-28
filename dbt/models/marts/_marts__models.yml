@@ -1,0 +1,100 @@
+version: 2
+
+models:
+  - name: fct_lead_campaign_attribution
+    description: "Crédito de atribuição da aquisição de cada Lead por campanha, nos três modelos lado a lado (first-touch, last-touch, linear). Grão Lead × campanha, garantido pelo teste singular assert_attribution_grain_unique; cada Lead distribui exatamente 1 de crédito por modelo (assert_attribution_credits_per_lead). Só a aquisição recebe crédito: re-engajamento fica de fora, porque o Lead já existia."
+    columns:
+      - name: lead_id
+        description: "Lead atribuído (FK para int_lead_attribution)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_lead_attribution')
+                field: lead_id
+      - name: campaign_id
+        description: "Campanha que recebe o crédito (FK para stg_marketing_campaigns)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketing_campaigns')
+                field: campaign_id
+      - name: match_path
+        description: "Como o Lead foi atribuído: journey (cliques da jornada) ou utm_only (só o UTM do Lead)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['journey', 'utm_only']
+      - name: campaign_touch_count
+        description: "Toques da campanha na jornada de aquisição do Lead (0 em utm_only)."
+      - name: first_touch_credit
+        description: "1 se a campanha teve o primeiro toque da jornada, senão 0. Nulo em utm_only (primeiro toque desconhecido)."
+      - name: last_touch_credit
+        description: "1 se a campanha teve o último toque da jornada (ou é a campanha do UTM em utm_only), senão 0."
+        data_tests:
+          - not_null
+      - name: linear_credit
+        description: "Fração dos toques da jornada que caiu na campanha (toques da campanha / toques da jornada). Nulo em utm_only."
+      - name: opportunity_id
+        description: "Opportunity ligada ao Lead (int_lead_opportunities), se houver."
+      - name: attributable_revenue
+        description: "Valor da Opportunity do Lead se ganha e criada depois da aquisição; 0 nos demais casos (Opportunity aberta antes da aquisição só foi influenciada; utm_only não tem data de aquisição para validar a ordem)."
+        data_tests:
+          - not_null
+      - name: first_touch_revenue
+        description: "attributable_revenue × first_touch_credit."
+      - name: last_touch_revenue
+        description: "attributable_revenue × last_touch_credit."
+      - name: linear_revenue
+        description: "attributable_revenue × linear_credit."
+
+  - name: mart_campaign_performance
+    description: "Desempenho por campanha: custo e cliques da plataforma, cliques rastreados no site (inclusive os que não converteram), Leads e receita atribuídos, CPL e ROAS nos três modelos de atribuição lado a lado. Divisão defensiva: sem Lead, o CPL fica nulo; sem custo (newsletter), o ROAS fica nulo em vez de infinito. Totais conferidos contra o fato por assert_campaign_performance_reconciles."
+    columns:
+      - name: campaign_id
+        description: "ID da campanha. Chave primária."
+        data_tests:
+          - unique
+          - not_null
+      - name: cost
+        description: "Custo total da campanha (soma de stg_marketing_campaign_daily_stats). 0 na newsletter."
+        data_tests:
+          - not_null
+      - name: impressions
+        description: "Impressões totais reportadas pela plataforma."
+      - name: platform_clicks
+        description: "Cliques reportados pela plataforma. Ficam 10–25% acima de tracked_clicks (ad blocker, bounce antes da tag)."
+      - name: tracked_clicks
+        description: "Cliques rastreados no site (int_marketing_touches)."
+      - name: visitors
+        description: "Visitantes distintos que clicaram na campanha."
+      - name: converting_clicks
+        description: "Cliques que contribuíram para uma conversão (touch_phase = pre_conversion)."
+      - name: non_converting_clicks
+        description: "Cliques de visitantes que nunca converteram (touch_phase = no_conversion)."
+      - name: first_touch_leads
+        description: "Leads atribuídos pelo modelo first-touch."
+      - name: last_touch_leads
+        description: "Leads atribuídos pelo modelo last-touch."
+      - name: linear_leads
+        description: "Leads atribuídos pelo modelo linear (fracionário)."
+      - name: first_touch_revenue
+        description: "Receita atribuída pelo modelo first-touch."
+      - name: last_touch_revenue
+        description: "Receita atribuída pelo modelo last-touch."
+      - name: linear_revenue
+        description: "Receita atribuída pelo modelo linear."
+      - name: first_touch_cpl
+        description: "Custo por Lead no first-touch. Nulo quando a campanha não tem Lead nesse modelo."
+      - name: last_touch_cpl
+        description: "Custo por Lead no last-touch. Nulo quando a campanha não tem Lead nesse modelo."
+      - name: linear_cpl
+        description: "Custo por Lead no linear. Nulo quando a campanha não tem Lead nesse modelo."
+      - name: first_touch_roas
+        description: "Receita first-touch / custo. Nulo quando o custo é 0."
+      - name: last_touch_roas
+        description: "Receita last-touch / custo. Nulo quando o custo é 0."
+      - name: linear_roas
+        description: "Receita linear / custo. Nulo quando o custo é 0."

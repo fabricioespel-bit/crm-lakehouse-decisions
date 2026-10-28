@@ -354,6 +354,9 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
       por e-mail do Contact (ver seção 7).
   - **2c — marts:** funil de oportunidades (win rate, ciclo de venda) e ROAS por campanha com modelo de
     atribuição explícito.
+    - [x] Atribuição + desempenho por campanha (28/out/2026) — `fct_lead_campaign_attribution` e
+      `mart_campaign_performance`, first/last/linear lado a lado (ver seção 7).
+    - [ ] Funil de vendas — `fct_opportunities`, win rate, ciclo de venda, originado por marketing vs. resto.
   - Testes dbt em todas as camadas (not-null, unique, relationships, customizados — incluindo teste que
     monitora a taxa de atribuição do stitching); pelo menos um model `materialized='incremental'`.
 - **Fase 3 — CI/CD:** pipeline GitHub Actions (`dbt build`/`dbt test` em PR); autenticação via key-pair;
@@ -788,3 +791,33 @@ cobrem os envios de formulário (mai/2025–jul/2026), o que permite ligar respe
 
 Próximo: 2c — marts (atribuição first/last/linear lado a lado, CPL e ROAS por campanha, custo zero
 da newsletter tratado; Opportunity anterior à aquisição fora do crédito de receita).
+
+**28/out/2026 — 2c, bloco 1: atribuição e desempenho por campanha.** Dois marts (tables em `marts`):
+- `fct_lead_campaign_attribution` — grão Lead × campanha, crédito da **aquisição** nos três modelos
+  (`first_touch_credit`, `last_touch_credit`, `linear_credit` = toques da campanha / toques da jornada)
+  e receita = crédito × `attributable_revenue`. Regras: re-engajamento não recebe crédito (o Lead já
+  existia); receita só de Opportunity ganha **e** criada depois da aquisição; `utm_only` só tem
+  last-touch (first/linear nulos) e fica sem receita (sem data de aquisição para validar a ordem).
+- `mart_campaign_performance` — grão campanha: custo/impressões/cliques da plataforma, cliques
+  rastreados (inclusive os que não converteram), Leads, receita, CPL e ROAS nos três modelos. Divisão
+  defensiva com `nullif`: sem Lead → CPL nulo; custo 0 (newsletter) → ROAS nulo, não infinito.
+- **Testes singulares:** `assert_attribution_grain_unique`, `assert_attribution_credits_per_lead`
+  (cada Lead distribui exatamente 1 por modelo, linear com tolerância de arredondamento: 1/3 × 3 =
+  0,999999) e `assert_campaign_performance_reconciles` (mart = fato, sem perda nem fan-out nos joins).
+  Pegadinha evitada: alias `touch_count` igual ao nome da coluna de origem deixaria
+  `max(touch_count)` ambíguo — virou `campaign_touch_count`.
+- **Resultado:** `dbt build --select fct_lead_campaign_attribution+` **PASS=16 WARN=0** (142 linhas
+  no fato, 10 no mart; sumiu o warning de `models.crm_lakehouse.marts` sem uso). Totais: 2.073 cliques
+  rastreados vs. 2.304 da plataforma (+11%), 89 Leads por modelo, receita 1.152.370,66 nos três.
+- **Leitura:** `linkedin/abm_decisores` é a mais cara (2.991) e tem 9 Leads first-touch vs. 3
+  last-touch — CPL last-touch 997 vs. ~332 first-touch: o canal que mais abre jornada seria cortado por
+  quem só olha last-touch. `google/lancamento_produto` idem (11 vs. 4, ROAS 471 → 0). No outro sentido,
+  `meta/case_cliente` e `meta/trial_gratuito` só têm ROAS no last-touch (conteúdo de decisão).
+- **Limitações de realismo encontradas (pendentes de decisão):** (1) ROAS ~105x na média — custo total
+  10,9 mil contra 1,15 mi de receita; as faixas de CPC/CTR herdadas do v1 são baratas demais para
+  negócios B2B de ~190 mil, e a receita está concentrada em 6 negócios (um a mais ou a menos leva o ROAS
+  de uma campanha de 0 a centenas); (2) newsletter aparece como first-touch em 8 Leads — raro na vida
+  real (pressupõe a pessoa já na base). Ambos se resolvem no gerador v2 sem mudar código dbt.
+
+Próximo: 2c, bloco 2 — funil de vendas (`fct_opportunities`, win rate, ciclo, originado por
+marketing vs. resto); antes, decidir se ajusta o custo/newsletter no gerador.
