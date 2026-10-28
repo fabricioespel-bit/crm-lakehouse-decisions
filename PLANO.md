@@ -365,6 +365,8 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   - [x] CI em PR (28/out/2026) — `.github/workflows/dbt-ci.yml`, schemas `CI_PR<n>_*` isolados,
     `DBT_CI_USER`/`DBT_CI_ROLE` dedicados (ver seção 7).
   - [x] `dbt docs` no GitHub Pages (28/out/2026) — https://fabricioespel-bit.github.io/crm-lakehouse-decisions/
+  - [x] Proteção da `main` (28/out/2026) — `dbt-build` obrigatório, gate de mudança em `dbt/**` no
+    workflow (ver seção 7).
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
   tabela/coluna pensadas pra consumo por agente de IA, no mesmo espírito do `data-lake-engineering-decisions`)
   — só entra se sobrar tempo dentro da janela do trial, não é objetivo central do projeto.
@@ -948,3 +950,22 @@ Próximo: Fase 3, passo 3 — `dbt docs` no GitHub Pages (deploy no push para `m
 
 Próximo (opcional): proteção da `main` exigindo o check `dbt-build`; `--full-refresh` agendado do model
 incremental; `dbt source freshness`; Fase 4 (stretch).
+
+**28/out/2026 — Proteção da `main`.** Duas decisões (Fabricio):
+- **Check obrigatório que sempre reporta:** o `dbt-ci.yml` filtrava `paths: dbt/**`, então em PR só de
+  docs o `dbt-build` nunca rodaria e o merge ficaria travado esperando um check que não vem. Em vez de
+  tirar o filtro (todo PR gastaria warehouse), o workflow roda em todo PR e o primeiro passo compara o
+  merge commit com a `main` (`git diff HEAD^1 HEAD`, `fetch-depth: 2`): sem mudança em `dbt/**` nem no
+  próprio workflow, os passos do dbt são pulados e o job sai verde sem tocar no Snowflake.
+- **Admin pode contornar** (`enforce_admins: false`): o fluxo normal exige PR + `dbt-build` verde, mas o
+  push direto dos commits de docs no fechamento de cada bloco continua funcionando (o GitHub registra
+  o bypass).
+- **Regra (via `gh api -X PUT .../branches/main/protection`):** `dbt-build` obrigatório com
+  `strict: true` (branch atualizado com a `main`), PR obrigatório com 0 aprovações (projeto solo — não
+  dá para aprovar o próprio PR), force-push e exclusão da `main` bloqueados.
+- **Validação:** PR #3 (o próprio gate, mexe no workflow) rodou o caminho completo — PASS=161 WARN=5
+  em 1m08s, schemas `CI_PR3_*` removidos. PR #4 de teste só com README: `dbt-build` verde em **6s**,
+  log "Sem mudança em dbt/**: pulando o dbt build.", `mergeStateStatus: CLEAN`; fechado sem merge.
+
+Próximo (opcional): `--full-refresh` agendado do model incremental; `dbt source freshness`; Fase 4
+(stretch).

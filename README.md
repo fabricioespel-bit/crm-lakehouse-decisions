@@ -67,7 +67,7 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
 | **Snowflake** | Data warehouse | Separação storage/compute, key-pair auth, resource monitor para governança de custo |
 | **dbt Core** (`dbt-snowflake` 1.12) | Transformação, testes, documentação | CLI versionado no Git, CI próprio em vez do CI embutido do dbt Cloud |
 | **Snowflake CLI** (`snow`) / **Salesforce CLI** (`sf`) | Operação e validação | Conferência de contagens e qualidade por SQL/SOQL, não só pela UI |
-| **GitHub Actions** | CI/CD (planejado) | `dbt build` em todo PR que toca os models |
+| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`) + deploy do `dbt docs` no Pages |
 
 ---
 
@@ -128,6 +128,10 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   no fim mesmo se o build falhar. O CI autentica com usuário e role dedicados (`DBT_CI_USER` /
   `DBT_CI_ROLE`, key-pair própria) que não têm escrita nos schemas de verdade — um secret vazado não
   alcança os dados publicados.
+- **`main` protegida, check que sempre reporta.** Merge na `main` exige PR com o `dbt-build` verde. O
+  workflow roda em todo PR, mas o primeiro passo olha o diff: PR que não toca `dbt/**` sai verde em
+  segundos sem acessar o Snowflake. Filtrar por `paths` no gatilho travaria o merge desses PRs — o
+  check obrigatório nunca reportaria.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:
