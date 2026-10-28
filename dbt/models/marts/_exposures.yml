@@ -1,0 +1,16 @@
+version: 2
+
+exposures:
+  - name: executive_dashboard
+    label: Painel executivo
+    type: dashboard
+    maturity: medium
+    url: https://fabricioespel-bit.github.io/crm-lakehouse-decisions/#painel
+    description: "Painel executivo do portfólio: investimento, ROAS nos três modelos de atribuição, funil por origem e taxa de match marketing ↔ CRM. Lê os marts via portfolio/queries/*.sql, exportados para JSON a cada deploy do site."
+    owner:
+      name: Fabricio Espel
+    depends_on:
+      - ref('mart_campaign_performance')
+      - ref('mart_sales_funnel')
+      - ref('fct_opportunities')
+      - ref('int_lead_attribution')

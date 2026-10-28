@@ -43,6 +43,8 @@ jobs:
       - name: Valida conexão
         run: dbt debug --target prod
 
+      # a ingestão deste projeto está parada de propósito (Airbyte encerrado, marketing em carga única):
+      # o freshness acusa ERROR STALE e não pode impedir o full-refresh
       - name: dbt source freshness
         continue-on-error: true
         run: dbt source freshness --target prod
