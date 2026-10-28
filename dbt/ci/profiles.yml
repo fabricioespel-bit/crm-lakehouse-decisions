@@ -23,3 +23,15 @@ crm_lakehouse:
       warehouse: CRM_LAKEHOUSE_WH
       schema: STAGING
       threads: 4
+    # prod: escreve nos schemas de verdade (job agendado de full-refresh); usuário próprio com a
+    # DBT_ROLE, secrets só no environment production do GitHub
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY') }}"
+      role: DBT_ROLE
+      database: CRM_LAKEHOUSE
+      warehouse: CRM_LAKEHOUSE_WH
+      schema: STAGING
+      threads: 4

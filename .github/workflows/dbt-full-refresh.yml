@@ -1,0 +1,47 @@
+name: dbt full-refresh
+
+# o incremental só reprocessa os últimos 3 dias: evento que chega mais atrasado que isso, ou deletado
+# no RAW, deixa o stg_marketing_click_events divergente da fonte. O full-refresh semanal recria a
+# tabela do zero e reconstrói o que depende dela.
+on:
+  schedule:
+    - cron: "0 9 * * 0" # domingo, 09:00 UTC (06:00 em Brasília)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbt-full-refresh
+  cancel-in-progress: false
+
+jobs:
+  full-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # os secrets de escrita ficam no environment production, liberado só para a main: um PR que
+    # altere workflow não consegue lê-los
+    environment: production
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_PROD_USER }}
+      SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PROD_PRIVATE_KEY }}
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/ci
+    defaults:
+      run:
+        working-directory: dbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instala dbt
+        run: pip install dbt-core==1.12.5 dbt-snowflake==1.12.1
+
+      - name: Valida conexão
+        run: dbt debug --target prod
+
+      - name: dbt build --full-refresh (incremental + descendentes)
+        run: dbt build --target prod --full-refresh --select stg_marketing_click_events+
