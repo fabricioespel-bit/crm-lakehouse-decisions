@@ -1,5 +1,10 @@
 # crm-lakehouse-decisions
 
+[![dbt CI](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-ci.yml/badge.svg)](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-ci.yml)
+[![dbt docs](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-docs.yml/badge.svg)](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/)
+
+**Documentação do projeto dbt (models, colunas, testes e linhagem):** https://fabricioespel-bit.github.io/crm-lakehouse-decisions/
+
 Pipeline analítico **Salesforce + marketing → Snowflake → dbt Core**, construído para resolver dois
 problemas comuns em empresas que geram leads via marketing e fecham venda via CRM:
 
@@ -45,7 +50,7 @@ flowchart TD
 | **STAGING** | 1:1 com a fonte: tipos, snake_case, `not ISDELETED`, de-para de picklist | ✅ 8 models |
 | **INTERMEDIATE** | Regras de negócio: dedup de Accounts, stitching marketing ↔ Lead | ✅ dedup + stitching (4 models) |
 | **MARTS** | Funil (win rate, ciclo), ROAS com atribuição explícita | ✅ atribuição first/last/linear, CPL/ROAS por campanha, funil por origem |
-| **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | 🟡 CI em PR (schemas isolados por PR) pronto; docs em andamento |
+| **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | ✅ CI em PR (schemas isolados por PR) + [docs publicados](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/) |
 
 Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singulares), todos passando
 (alguns em `warn` por design — ver abaixo).
@@ -213,5 +218,5 @@ dbt docs generate && dbt docs serve
 
 - **Histórico de estágios:** extrair `OpportunityHistory` para medir conversão entre estágios — hoje o
   funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
-- **Fase 3 — CD e docs:** `dbt docs` publicado no GitHub Pages no push para `main`; `dbt source
-  freshness` a partir de `_AIRBYTE_EXTRACTED_AT`; `--full-refresh` periódico do model incremental.
+- **Operação:** proteção da `main` exigindo o check `dbt-build`; `--full-refresh` agendado do model
+  incremental; `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`.

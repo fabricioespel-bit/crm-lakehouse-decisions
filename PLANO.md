@@ -364,7 +364,7 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   `dbt docs generate` publicado via GitHub Pages.
   - [x] CI em PR (28/out/2026) — `.github/workflows/dbt-ci.yml`, schemas `CI_PR<n>_*` isolados,
     `DBT_CI_USER`/`DBT_CI_ROLE` dedicados (ver seção 7).
-  - [ ] `dbt docs` no GitHub Pages.
+  - [x] `dbt docs` no GitHub Pages (28/out/2026) — https://fabricioespel-bit.github.io/crm-lakehouse-decisions/
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
   tabela/coluna pensadas pra consumo por agente de IA, no mesmo espírito do `data-lake-engineering-decisions`)
   — só entra se sobrar tempo dentro da janela do trial, não é objetivo central do projeto.
@@ -926,3 +926,25 @@ Próximo: Fase 3, passo 2 — CI no GitHub Actions (`dbt build` em PR, key-pair 
   ERROR=0** (os 5 warns são a sujeira proposital conhecida), 3 schemas `CI_PR1_*` removidos no fim.
 
 Próximo: Fase 3, passo 3 — `dbt docs` no GitHub Pages (deploy no push para `main`).
+
+**28/out/2026 — Fase 3, passo 3: `dbt docs` no GitHub Pages. Fase 3 completa.**
+- **Desenho:** o catálogo precisa descrever os schemas de verdade, não os `CI_PR*`. A `DBT_CI_ROLE`
+  ganhou **só leitura** em `STAGING`/`INTERMEDIATE`/`MARTS` (`usage` + `select` em tabelas e views,
+  atuais e `future` — o dbt recria os objetos com `create or replace`, sem `future` a leitura sumiria
+  no primeiro build); continua sem escrita. Novo target `docs` no `dbt/ci/profiles.yml` com a mesma
+  credencial: como `target.name` não é `ci`, o macro não prefixa e o dbt documenta os schemas reais.
+- **Workflow `.github/workflows/dbt-docs.yml`:** push na `main` em `dbt/**` + `workflow_dispatch`;
+  `dbt docs generate --target docs --static` (site inteiro num HTML só, com manifesto e catálogo
+  embutidos) → `actions/upload-pages-artifact` → `actions/deploy-pages` (environment `github-pages`).
+  Pages ativado com `build_type = workflow` via `gh api`. `concurrency` sem cancelar deploy em andamento.
+- **Validação:** teste local com a credencial do CI antes do workflow (catálogo com 21 nodes — 10
+  `STAGING`, 7 `INTERMEDIATE`, 4 `MARTS` — e 9 sources, sem erro de privilégio); PR #2 com CI verde
+  (1m07s); depois do merge, `build-docs` e `deploy` verdes e o site respondendo HTTP 200 (~3 MB).
+- **Pegadinhas:** (1) o Pages precisa estar ativado antes do primeiro deploy (o `gh api .../pages` dava
+  404); (2) rodar o dbt com `--profiles-dir ci` cria `dbt/ci/.user.yml` (ID anônimo de telemetria) —
+  entrou `**/.user.yml` no `.gitignore`; (3) a extensão GitHub Actions da IDE acusa
+  `Context access might be invalid` nos secrets e `github-pages` como environment inválido antes do
+  primeiro deploy — falsos positivos.
+
+Próximo (opcional): proteção da `main` exigindo o check `dbt-build`; `--full-refresh` agendado do model
+incremental; `dbt source freshness`; Fase 4 (stretch).
