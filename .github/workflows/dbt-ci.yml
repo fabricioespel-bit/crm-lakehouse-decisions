@@ -1,10 +1,9 @@
 name: dbt CI
 
+# roda em todo PR: dbt-build é check obrigatório na main, então precisa reportar sempre.
+# Sem mudança em dbt/** o job só detecta isso e sai verde, sem tocar no Snowflake.
 on:
   pull_request:
-    paths:
-      - "dbt/**"
-      - ".github/workflows/dbt-ci.yml"
   workflow_dispatch:
 
 # um push novo no mesmo PR cancela a execução anterior (não gasta warehouse à toa)
@@ -27,21 +26,40 @@ jobs:
         working-directory: dbt
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # no PR o checkout é o merge commit: HEAD^1 é a main, então o diff é só o que o PR muda
+      - name: Detecta mudança em dbt/**
+        id: changes
+        working-directory: .
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ] \
+            || git diff --name-only HEAD^1 HEAD | grep -qE '^(dbt/|\.github/workflows/dbt-ci\.yml$)'; then
+            echo "dbt=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dbt=false" >> "$GITHUB_OUTPUT"
+            echo "Sem mudança em dbt/**: pulando o dbt build."
+          fi
 
       - uses: actions/setup-python@v5
+        if: steps.changes.outputs.dbt == 'true'
         with:
           python-version: "3.12"
 
       - name: Instala dbt
+        if: steps.changes.outputs.dbt == 'true'
         run: pip install dbt-core==1.12.5 dbt-snowflake==1.12.1
 
       - name: Valida conexão
+        if: steps.changes.outputs.dbt == 'true'
         run: dbt debug
 
       - name: dbt build (schemas CI_PR*)
+        if: steps.changes.outputs.dbt == 'true'
         run: dbt build
 
       # roda mesmo se o build falhar, para não deixar schema órfão no Snowflake
       - name: Remove os schemas do PR
-        if: always()
+        if: always() && steps.changes.outputs.dbt == 'true'
         run: dbt run-operation drop_ci_schemas
