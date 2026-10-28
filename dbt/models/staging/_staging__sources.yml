@@ -4,6 +4,13 @@ sources:
   - name: salesforce
     database: CRM_LAKEHOUSE
     schema: RAW
+    # o Airbyte grava quando extraiu cada linha; SYSTEMMODSTAMP é alteração na origem (o patch de
+    # 27/out mexeu nele sem passar pelo Airbyte) e faria uma fonte parada parecer fresca
+    config:
+      loaded_at_field: _AIRBYTE_EXTRACTED_AT
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
     tables:
       - name: ACCOUNT
       - name: CONTACT
@@ -14,11 +21,26 @@ sources:
   - name: marketing
     database: CRM_LAKEHOUSE
     schema: RAW
+    # sem coluna de carga no COPY INTO: o horário do evento mais recente mostra se o tracking parou
     tables:
       - name: MARKETING_CAMPAIGNS
+        # cadastro, muda raramente: semana sem campanha nova não é ingestão quebrada
       - name: MARKETING_CLICK_EVENTS
+        config:
+          loaded_at_field: EVENT_TIMESTAMP
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 24, period: hour}
       - name: MARKETING_FORM_SUBMISSIONS
-      - name: MARKETING_CAMPAIGN_DAILY_STATS 
-
-  
-    
+        config:
+          loaded_at_field: SUBMITTED_AT
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 48, period: hour}
+      - name: MARKETING_CAMPAIGN_DAILY_STATS
+        # plataforma de anúncio entrega D-1: dia fechado chega no dia seguinte
+        config:
+          loaded_at_field: STAT_DATE::timestamp
+          freshness:
+            warn_after: {count: 2, period: day}
+            error_after: {count: 3, period: day}
