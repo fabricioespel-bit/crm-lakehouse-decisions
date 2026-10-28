@@ -370,9 +370,12 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
   - [x] Full-refresh semanal do incremental (28/out/2026) — `.github/workflows/dbt-full-refresh.yml`,
     `DBT_PROD_USER`, secrets no environment `production` (ver seção 7).
   - [x] `dbt source freshness` (28/out/2026) — no job semanal, sem bloquear (ver seção 7).
+  - [x] Agendamento semanal desligado no fechamento (28/out/2026) — job só sob demanda (ver seção 7).
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
   tabela/coluna pensadas pra consumo por agente de IA, no mesmo espírito do `data-lake-engineering-decisions`)
   — só entra se sobrar tempo dentro da janela do trial, não é objetivo central do projeto.
+  - [x] Página do projeto com painel executivo no GitHub Pages (28/out/2026) — virou a Fase 4 no lugar
+    da ideia original (ver seção 7).
 
 ## 6. Como retomar numa sessão nova
 
@@ -495,7 +498,7 @@ remoto/push para o GitHub) — detalhes no checklist abaixo. Próximo passo: amb
   20%, quase exato), Leads com UTM propagado 59/125. CSVs de marketing conferidos (8 campanhas, 1740
   cliques, estrutura correta).
 - [x] Documentar os dados como sintéticos (21/set/2026) — `data/GENERATED_DATA.md`.
-- [ ] Seguir para a Fase 1 (Airbyte → Snowflake `raw`).
+- [x] Seguir para a Fase 1 (Airbyte → Snowflake `raw`).
 
 **14/out/2026 — retomada após pausa e replanejamento pelos prazos dos trials:**
 
@@ -582,7 +585,7 @@ Próximos passos, em ordem:
   até rodar `alter warehouse ... set resource_monitor = ...` separadamente. Observado também que o
   warehouse é `STANDARD_GEN_2` (Gen2 consome mais créditos/h que Gen1); voltar para Gen1
   (`resource_constraint = standard_gen_1`) é opcional, decisão em aberto.
-- [ ] Retomar a Fase 2: fechar `stg_leads` (correções de 14/out), `stg_opportunities`,
+- [x] Retomar a Fase 2: fechar `stg_leads` (correções de 14/out), `stg_opportunities`,
   `stg_opportunity_contact_roles`; depois 2b (stitching marketing ↔ Lead).
 
 **22/out/2026 — `stg_leads` fechado.** Model com filtro `not ISDELETED`, os três campos UTM
@@ -1041,3 +1044,17 @@ passa para `/docs/`), **números gerados pelo pipeline** (não digitados no HTML
   publica página na raiz + docs em `/docs/` + `/data/dashboard.json`. Dispara também em `portfolio/**`
   e via `workflow_run` depois do full-refresh semanal (só se ele terminou verde). `site/` no `.gitignore`.
 - Divisão: Fabricio pediu que Claude finalizasse os ajustes (consultas revisadas, exposure, export).
+
+**28/out/2026 — Fechamento do projeto.** Fases 0–4 concluídas e publicadas. Decisão (Fabricio):
+**desligar o agendamento semanal** do full-refresh — com a ingestão parada, ele só gastava crédito do
+Snowflake (On-Demand) para reconstruir os mesmos dados todo domingo e redeployar o site.
+- **Como:** o `schedule` saiu do `dbt-full-refresh.yml` (fica comentado, com o cron, para religar); o
+  `workflow_dispatch` continua, e o `workflow_run` do `site` segue redeployando depois de um
+  full-refresh manual. README e página atualizados (seção "Status"; "sob demanda" no lugar de
+  "semanal").
+- **Estado final:** 20 models, 1 seed, 9 sources, 145 testes de dados, 1 exposure; CI em todo PR com a
+  `main` protegida; site em https://fabricioespel-bit.github.io/crm-lakehouse-decisions/ com o painel
+  num snapshot fixo dos marts. Nada fica rodando sozinho no Snowflake — só um PR que toque `dbt/**` ou
+  um push na `main` em `dbt/**`/`portfolio/**` acorda o warehouse.
+- **Se voltar:** Node 20 nas actions; religar o cron e tirar o `continue-on-error` do freshness numa
+  ingestão viva; `OpportunityHistory` para conversão entre estágios.

@@ -1,7 +1,7 @@
 name: site
 
 # site do portfólio: página na raiz, dbt docs em /docs/ e os números do painel em /data/ (exportados
-# dos marts a cada deploy). O full-refresh semanal reconstrói os marts, então redeploya depois dele.
+# dos marts a cada deploy). O full-refresh reconstrói os marts, então redeploya depois dele.
 on:
   push:
     branches: [main]

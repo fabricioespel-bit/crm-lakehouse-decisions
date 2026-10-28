@@ -340,7 +340,7 @@
     <b>Em volta:</b>
     <span class="chip">CI em todo PR</span>
     <span class="chip"><code>main</code> protegida</span>
-    <span class="chip">Full-refresh semanal</span>
+    <span class="chip">Full-refresh do incremental</span>
     <span class="chip">Source freshness</span>
     <span class="chip">dbt docs publicado</span>
   </div>
@@ -452,10 +452,10 @@
       </ul>
     </div>
     <div class="card">
-      <h3>A cada push na main e todo domingo</h3>
+      <h3>A cada push na main</h3>
       <ul class="plain">
         <li>Deploy deste site: documentação dbt regenerada e números do painel exportados dos marts.</li>
-        <li>Full-refresh semanal do incremental, para corrigir evento atrasado ou deletado que a janela não pega.</li>
+        <li>Full-refresh do incremental, para corrigir evento atrasado ou deletado que a janela não pega. Rodou todo domingo; com a ingestão parada, hoje roda sob demanda.</li>
         <li><code>dbt source freshness</code> antes do build: teste de qualidade não detecta dado velho. Aqui ele acusa a ingestão parada, que foi encerrada de propósito.</li>
       </ul>
     </div>
