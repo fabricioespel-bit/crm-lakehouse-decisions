@@ -1,11 +1,18 @@
-name: dbt docs
+name: site
 
+# site do portfólio: página na raiz, dbt docs em /docs/ e os números do painel em /data/ (exportados
+# dos marts a cada deploy). O full-refresh semanal reconstrói os marts, então redeploya depois dele.
 on:
   push:
     branches: [main]
     paths:
       - "dbt/**"
+      - "portfolio/**"
+      - "scripts/export_dashboard_data.py"
       - ".github/workflows/dbt-docs.yml"
+  workflow_run:
+    workflows: ["dbt full-refresh"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +26,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-docs:
+  build-site:
+    # depois do full-refresh, só publica se ele terminou verde
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -44,15 +53,23 @@ jobs:
       - name: Gera o site de docs
         run: dbt docs generate --target docs --static
 
-      - name: Prepara o site
-        run: mkdir -p ../site && cp target/static_index.html ../site/index.html
+      # mesma credencial só leitura: o painel lê os marts e o int_lead_attribution
+      - name: Exporta os dados do painel
+        working-directory: .
+        run: python scripts/export_dashboard_data.py --out site/data/dashboard.json
+
+      - name: Monta o site
+        run: |
+          mkdir -p ../site/docs
+          cp target/static_index.html ../site/docs/index.html
+          cp ../portfolio/index.html ../site/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
-    needs: build-docs
+    needs: build-site
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -1017,3 +1017,27 @@ freshness olha o tempo; ele acusar a fonte parada é o comportamento correto aqu
   Numa ingestão viva, tirar o `continue-on-error` para o job falhar e notificar.
 
 Próximo (opcional): Fase 4 (stretch); subir `actions/checkout`/`setup-python` (aviso do Node 20).
+
+**28/out/2026 — Fase 4: página do projeto com painel executivo.** Ideia do Fabricio: um artefato de
+portfólio com as decisões, o que foi desenvolvido, a integração Salesforce × mídia e um painel
+executivo. Decisões (Fabricio): **GitHub Pages do repo** (link público ao lado do código; o dbt docs
+passa para `/docs/`), **números gerados pelo pipeline** (não digitados no HTML), **português**.
+- **Dados:** 6 consultas em `portfolio/queries/` (kpis, canais, campanhas, funil, match, tendencia) —
+  agregação fina sobre os marts (+ `int_lead_attribution`, única fonte da taxa de match); o
+  `scripts/export_dashboard_data.py` roda todas e grava um JSON (chaves minúsculas, Decimal → float).
+  Validação contra os números conhecidos: investimento 143.580,99 em kpis/canais/campanhas, ROAS 8,03,
+  receita atribuída 1.152.370,66 = `won_amount` de `marketing_sourced`, 200 Opportunities / 3.963.919,37
+  na tendência, match 71,2% vs. baseline UTM 47,2%. Achado: **não há Lead `utm_only`** — todo Lead
+  com UTM também foi achado pela jornada (a jornada contém os 59 do UTM e acha mais 30).
+- **`exposure` `executive_dashboard`** (`dbt/models/marts/_exposures.yml`): 18 models na linhagem.
+- **Página** (`portfolio/index.html`, HTML/CSS/JS sem dependência): problema, arquitetura, cadeia de
+  integração com as perdas de cada etapa, qualidade de dado, decisões, operação, painel e limitações.
+  Painel: KPIs (ROAS como hero), 3 leituras calculadas do JSON (LinkedIn 46% da verba sem receita;
+  `case_cliente` 0x first vs. 69,5x last; melhor ROAS linear), ROAS por canal × modelo (líder muda de
+  Google no first-touch para Meta no last-touch), tabela de campanhas, Opportunities/mês por origem e
+  funil. Tooltips, tabela de dados por gráfico, modo claro/escuro; paleta dos modelos validada (slots
+  1–3, all-pairs). Conferida renderizada (desktop e 375px sem rolagem horizontal).
+- **Workflow `dbt-docs.yml` → `site`:** gera o docs, exporta o JSON (credencial só leitura do CI) e
+  publica página na raiz + docs em `/docs/` + `/data/dashboard.json`. Dispara também em `portfolio/**`
+  e via `workflow_run` depois do full-refresh semanal (só se ele terminou verde). `site/` no `.gitignore`.
+- Divisão: Fabricio pediu que Claude finalizasse os ajustes (consultas revisadas, exposure, export).

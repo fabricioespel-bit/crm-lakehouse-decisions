@@ -1,9 +1,11 @@
 # crm-lakehouse-decisions
 
 [![dbt CI](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-ci.yml/badge.svg)](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-ci.yml)
-[![dbt docs](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-docs.yml/badge.svg)](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/)
+[![site](https://github.com/fabricioespel-bit/crm-lakehouse-decisions/actions/workflows/dbt-docs.yml/badge.svg)](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/)
 
-**Documentação do projeto dbt (models, colunas, testes e linhagem):** https://fabricioespel-bit.github.io/crm-lakehouse-decisions/
+**Página do projeto (decisões, integração Salesforce × mídia e painel executivo):** https://fabricioespel-bit.github.io/crm-lakehouse-decisions/
+
+**Documentação do dbt (models, colunas, testes e linhagem):** https://fabricioespel-bit.github.io/crm-lakehouse-decisions/docs/
 
 Pipeline analítico **Salesforce + marketing → Snowflake → dbt Core**, construído para resolver dois
 problemas comuns em empresas que geram leads via marketing e fecham venda via CRM:
@@ -40,7 +42,7 @@ flowchart TD
         RAW --> STG --> INT --> MART
     end
 
-    MART --> DOCS["dbt docs → GitHub Pages"]
+    MART --> DOCS["GitHub Pages<br/>página + painel executivo + dbt docs"]
     GH["GitHub Actions<br/>dbt build em PR"] -.-> SNOW
 ```
 
@@ -50,10 +52,10 @@ flowchart TD
 | **STAGING** | 1:1 com a fonte: tipos, snake_case, `not ISDELETED`, de-para de picklist | ✅ 8 models |
 | **INTERMEDIATE** | Regras de negócio: dedup de Accounts, stitching marketing ↔ Lead | ✅ dedup + stitching (4 models) |
 | **MARTS** | Funil (win rate, ciclo), ROAS com atribuição explícita | ✅ atribuição first/last/linear, CPL/ROAS por campanha, funil por origem |
-| **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | ✅ CI em PR (schemas isolados por PR) + [docs publicados](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/) |
+| **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | ✅ CI em PR (schemas isolados por PR) + [página com painel](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/) + [docs](https://fabricioespel-bit.github.io/crm-lakehouse-decisions/docs/) |
 
-Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singulares), todos passando
-(alguns em `warn` por design — ver abaixo).
+Hoje: **20 models, 1 seed, 9 sources, 145 testes de dados** (genéricos + singulares) e **1 exposure**
+(o painel executivo), todos passando (alguns em `warn` por design — ver abaixo).
 
 ---
 
@@ -67,7 +69,7 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
 | **Snowflake** | Data warehouse | Separação storage/compute, key-pair auth, resource monitor para governança de custo |
 | **dbt Core** (`dbt-snowflake` 1.12) | Transformação, testes, documentação | CLI versionado no Git, CI próprio em vez do CI embutido do dbt Cloud |
 | **Snowflake CLI** (`snow`) / **Salesforce CLI** (`sf`) | Operação e validação | Conferência de contagens e qualidade por SQL/SOQL, não só pela UI |
-| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`), deploy do `dbt docs` no Pages, full-refresh semanal |
+| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`), deploy do site (página + painel + `dbt docs`) no Pages, full-refresh semanal |
 
 ---
 
@@ -142,6 +144,10 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   `SYSTEMMODSTAMP` e faria a fonte parecer fresca. Como a ingestão deste projeto foi encerrada de
   propósito, o check roda no job semanal acusando `ERROR STALE` sem bloquear o full-refresh — numa
   ingestão viva, ele travaria o job.
+- **Painel lê o produto final, declarado como `exposure`.** As consultas do painel
+  (`portfolio/queries/`) são agregação fina sobre os marts — regra de negócio nova iria para um model.
+  O deploy do site exporta os números com a credencial só leitura do CI e roda de novo depois do
+  full-refresh semanal; a `exposure` coloca o painel no fim da linhagem do dbt docs.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:
@@ -196,7 +202,11 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 ```
 ├── PLANO.md                    # plano vivo: decisões, log de progresso, obstáculos
 ├── data/                       # CSVs da fonte de marketing + GENERATED_DATA.md
+├── portfolio/
+│   ├── index.html              # página do projeto com o painel executivo (publicada no Pages)
+│   └── queries/                # consultas do painel sobre os marts (exportadas para JSON no deploy)
 ├── scripts/
+│   ├── export_dashboard_data.py      # roda portfolio/queries/*.sql e grava o JSON do painel
 │   ├── generate_sample_data.py       # popula o Salesforce (com sujeira configurável)
 │   ├── generate_marketing_events.py     # v1 (histórico): um clique por Lead, grava UTM no Lead
 │   ├── generate_marketing_events_v2.py  # jornadas multi-toque, envios de formulário, custo diário
@@ -207,7 +217,8 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 │   ├── models/marts/           # atribuição Lead × campanha, CPL/ROAS por campanha, Opportunities e funil por origem
 │   ├── seeds/staging/          # industry_mapping.csv
 │   ├── tests/                  # testes singulares
-│   └── macros/                 # generate_schema_name
+│   └── macros/                 # generate_schema_name, drop_ci_schemas
+├── .github/workflows/          # CI em PR, deploy do site, full-refresh semanal
 └── docs/img/                   # prints da configuração do Airbyte
 ```
 
@@ -232,5 +243,5 @@ dbt docs generate && dbt docs serve
 
 - **Histórico de estágios:** extrair `OpportunityHistory` para medir conversão entre estágios — hoje o
   funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
-- **Operação:** proteção da `main` exigindo o check `dbt-build`; `--full-refresh` agendado do model
-  incremental; `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`.
+- **Manutenção:** subir `actions/checkout` e `actions/setup-python` nos workflows (aviso de
+  depreciação do Node 20).

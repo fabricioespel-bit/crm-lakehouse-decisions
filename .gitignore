@@ -9,3 +9,6 @@ dbt/dbt_packages/
 
 # ID anônimo de telemetria que o dbt cria ao lado do profiles.yml
 **/.user.yml
+
+# site montado no deploy (portfolio + dbt docs + JSON do painel); a fonte fica em portfolio/
+site/
