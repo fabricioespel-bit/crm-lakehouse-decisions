@@ -31,7 +31,7 @@ NEW_CAMPAIGNS = [
 
 # --- Jornadas ---
 N_LOST_PROPAGATION = 30       # Leads sem UTM no CRM que vieram de marketing (perda de rastreamento)
-N_NON_CONVERTING = 900        # visitantes que clicam e nunca enviam formulário
+N_NON_CONVERTING = 6000       # visitantes que clicam e nunca enviam formulário (~1,5% visitante → Lead)
 TOUCHES_WEIGHTS = {1: 0.35, 2: 0.25, 3: 0.20, 4: 0.12, 5: 0.05, 6: 0.03}
 LOOKBACK_DAYS = 60            # cliques anteriores ao envio ficam dentro dessa janela
 NON_CONVERTING_CLICKS = (1, 3)
@@ -50,12 +50,15 @@ MAX_EXTRA_SUBMISSIONS = 2
 REENGAGEMENT_GAP_DAYS = (15, 120)
 REENGAGEMENT_TOUCHES_WEIGHTS = {0: 0.25, 1: 0.35, 2: 0.25, 3: 0.15}  # 0 = voltou direto, sem clique
 
-# --- Custo/desempenho (mesmas faixas do v1) ---
+# --- Newsletter: pressupõe a pessoa já na base, então nunca é o primeiro clique do visitante ---
+NEWSLETTER_FIX_SEED = 45       # gerador separado: não altera o resto dos dados
+
+# --- Custo/desempenho (faixas de B2B SaaS; as do v1 davam ROAS ~105x) ---
 CTR_RANGE = (0.01, 0.03)
 CPC_RANGES = {
-    "google": (2.50, 6.00),
-    "meta": (1.20, 3.50),
-    "linkedin": (5.00, 12.00),
+    "google": (6.00, 15.00),
+    "meta": (2.50, 7.00),
+    "linkedin": (10.00, 22.00),
     "newsletter": (0.0, 0.0),
 }
 
@@ -277,6 +280,27 @@ def build_non_converting_visitors(campaigns: list[dict]) -> list[dict]:
     return clicks
 
 
+def fix_newsletter_first_touch(clicks: list[dict], campaigns: list[dict]) -> int:
+    """Troca a campanha do primeiro clique do visitante quando é a newsletter (só recebe quem já está
+    na base) por outra ativa na mesma data. Usa um gerador próprio para não mudar o resto dos dados."""
+    rng = random.Random(NEWSLETTER_FIX_SEED)
+    first_click: dict[str, dict] = {}
+    for click in clicks:
+        if click["visitor_id"] not in first_click:
+            first_click[click["visitor_id"]] = click
+    fixed = 0
+    for click in first_click.values():
+        if click["utm_source"] != "newsletter":
+            continue
+        options = [c for c in active_campaigns(campaigns, click["event_timestamp"].date())
+                   if c["utm_source"] != "newsletter"]
+        if options:
+            campaign = rng.choice(options)
+            click.update({k: campaign[k] for k in ("campaign_id", "utm_source", "utm_medium", "utm_campaign")})
+            fixed += 1
+    return fixed
+
+
 def build_daily_stats(campaigns: list[dict], clicks: list[dict]) -> list[dict]:
     """Grão campanha × dia, como uma API de plataforma de anúncio entregaria. A plataforma conta
     mais cliques que o site rastreia (ad blocker, bounce antes da tag disparar)."""
@@ -328,6 +352,7 @@ def main():
     clicks += reengagement_clicks
     submissions += orphan_submissions + reengagement_submissions
     clicks.sort(key=lambda c: c["event_timestamp"])
+    print(f"Newsletter como primeiro clique trocada em {fix_newsletter_first_touch(clicks, campaigns)} visitantes.")
     submissions.sort(key=lambda s: s["submitted_at"])
     daily_stats = build_daily_stats(campaigns, clicks)
 

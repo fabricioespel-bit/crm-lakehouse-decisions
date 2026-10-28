@@ -57,9 +57,9 @@ Salesforce**: lê os Leads e as 8 campanhas originais do backup do RAW de 16/out
 | Dataset | Quantidade |
 |---|---|
 | Campanhas (`marketing_campaigns.csv`) | 10 (8 originais + newsletter + LinkedIn), com início/fim sobrepostos |
-| Cliques (`marketing_click_events.csv`) | 2.073, de 999 visitantes (`visitor_id`) |
+| Cliques (`marketing_click_events.csv`) | 12.120, de 6.099 visitantes (`visitor_id`); ~1,5% dos visitantes viram Lead |
 | Envios de formulário (`marketing_form_submissions.csv`) | 113 (89 aquisições, 20 re-engajamentos de 14 Leads, 4 sem Lead no CRM) |
-| Desempenho diário (`marketing_campaign_daily_stats.csv`) | 1.095 linhas (campanha × dia); newsletter com custo zero |
+| Desempenho diário (`marketing_campaign_daily_stats.csv`) | 1.095 linhas (campanha × dia); custo total ~143,6 mil com CPC de B2B SaaS (Google 6–15, Meta 2,5–7, LinkedIn 10–22); newsletter com custo zero |
 
 **Mecanismo de vínculo jornada → Lead (a parte mais importante de entender):**
 1. Cada visitante tem uma jornada de 1–6 cliques em até 60 dias, cada clique numa campanha ativa naquela
@@ -70,6 +70,8 @@ Salesforce**: lê os Leads e as 8 campanhas originais do backup do RAW de 16/out
    Leads sem UTM também vieram de marketing (perda de propagação: 59/89 ≈ 66%); o resto é orgânico
 4. ~20% dos Leads de jornada voltam e enviam outro formulário (re-engajamento, até 2 vezes, 15–120 dias
    depois, com 0–3 cliques entre os envios). Gerado com seed separada (43), sem alterar as aquisições
+5. A newsletter nunca é o primeiro clique de um visitante (só recebe quem já está na base): quando o
+   sorteio cai nela, a campanha é trocada por outra ativa na data (seed separada, 45)
 
 **Sujeira proposital:** e-mail do formulário com caixa/espaço diferente do CRM (~10%); troca de
 dispositivo em ~10% das jornadas (primeiros toques em outro `visitor_id`, irrecuperáveis); envios sem

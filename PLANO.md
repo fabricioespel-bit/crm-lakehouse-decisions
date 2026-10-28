@@ -819,5 +819,29 @@ da newsletter tratado; Opportunity anterior à aquisição fora do crédito de r
   de uma campanha de 0 a centenas); (2) newsletter aparece como first-touch em 8 Leads — raro na vida
   real (pressupõe a pessoa já na base). Ambos se resolvem no gerador v2 sem mudar código dbt.
 
+Mesmo dia — **limitações resolvidas no gerador v2** (decisão do Fabricio: ajustar antes do funil).
+Só CPC mais alto não chegava a ROAS de 3–10x sem CPC irreal (> 50): o problema era o volume de tráfego
+(~130 cliques/mês para 1,15 mi de receita; 9% visitante → Lead, contra 1–3% em B2B). Ajustes:
+`N_NON_CONVERTING` 900 → 6.000 (~1,5% visitante → Lead), CPC de B2B SaaS (Google 6–15, Meta 2,5–7,
+LinkedIn 10–22) e `fix_newsletter_first_touch` (seed 45: newsletter nunca é o primeiro clique do
+visitante — 569 trocados por outra campanha ativa na data). Campanhas e os 113 envios ficaram
+**idênticos** (o bloco que muda vem depois das jornadas de conversão no gerador, e `random.uniform`
+consome um sorteio só, qualquer que seja a faixa), então o elo Lead → Opportunity e o patch em
+`LEAD`/`CONTACT` não precisaram ser refeitos; os 2.073 cliques antigos foram preservados (79 com a
+campanha trocada pela regra da newsletter). Recarga só de `MARKETING_CLICK_EVENTS` (12.120) e
+`MARKETING_CAMPAIGN_DAILY_STATS` (1.095). `dbt build --select source:marketing+` **PASS=90 WARN=1**
+(o warn esperado da Opportunity anterior à aquisição); antes disso, um ERROR revelou o nome de
+coluna `utm_campaignregr` no YAML de staging (digitação acidental, entrou no commit `84747e8` e não
+tinha sido pego porque os builds anteriores não selecionavam o model) — corrigido.
+- **Números novos:** custo 143.581, 14.210 cliques da plataforma vs. 12.120 rastreados, 89 Leads por
+  modelo, CPL geral 1.613, **ROAS 8,0x** nos três modelos; newsletter com 0 Leads first-touch
+  (CPL first-touch nulo, sem Lead) e ROAS nulo (custo 0). Os números da 2b registrados em 27/out
+  (toques, visitantes) mudam com o tráfego novo; conversões, Leads e taxa de match não.
+- **Leitura:** `linkedin/abm_decisores` (a mais cara, 39,9 mil) tem CPL 3.993 no first-touch contra
+  13.310 no last-touch, e ROAS 0 em todos os modelos (nenhum negócio ganho na janela) — o caso clássico
+  de canal de topo que só se justifica pelo first-touch e que precisa de um horizonte de receita maior.
+  `google/lancamento_produto` vai de ROAS 30 (first) a 0 (last); `meta/case_cliente` faz o contrário
+  (0 → 69,5). `conteudo_educativo` e `lancamento_produto` têm o melhor ROAS first-touch (~30x).
+
 Próximo: 2c, bloco 2 — funil de vendas (`fct_opportunities`, win rate, ciclo, originado por
-marketing vs. resto); antes, decidir se ajusta o custo/newsletter no gerador.
+marketing vs. resto).

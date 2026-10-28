@@ -271,7 +271,7 @@ models:
           - accepted_values:
               arguments:
                 values: ['cpc', 'paid_social', 'email']
-      - name: utm_campaignregr
+      - name: utm_campaign
         description: "Nome da campanha no padrão UTM (snake_case)."
         data_tests:
           - not_null
