@@ -1,11 +1,12 @@
 name: dbt full-refresh
 
 # o incremental só reprocessa os últimos 3 dias: evento que chega mais atrasado que isso, ou deletado
-# no RAW, deixa o stg_marketing_click_events divergente da fonte. O full-refresh semanal recria a
-# tabela do zero e reconstrói o que depende dela.
+# no RAW, deixa o stg_marketing_click_events divergente da fonte. O full-refresh recria a tabela do
+# zero e reconstrói o que depende dela. Rodava todo domingo; no fechamento do projeto (28/out/2026) o
+# agendamento saiu para não consumir crédito do Snowflake com a ingestão parada. Para religar:
+#   schedule:
+#     - cron: "0 9 * * 0" # domingo, 09:00 UTC (06:00 em Brasília)
 on:
-  schedule:
-    - cron: "0 9 * * 0" # domingo, 09:00 UTC (06:00 em Brasília)
   workflow_dispatch:
 
 permissions:

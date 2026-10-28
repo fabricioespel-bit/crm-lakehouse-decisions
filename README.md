@@ -69,7 +69,7 @@ Hoje: **20 models, 1 seed, 9 sources, 145 testes de dados** (genéricos + singul
 | **Snowflake** | Data warehouse | Separação storage/compute, key-pair auth, resource monitor para governança de custo |
 | **dbt Core** (`dbt-snowflake` 1.12) | Transformação, testes, documentação | CLI versionado no Git, CI próprio em vez do CI embutido do dbt Cloud |
 | **Snowflake CLI** (`snow`) / **Salesforce CLI** (`sf`) | Operação e validação | Conferência de contagens e qualidade por SQL/SOQL, não só pela UI |
-| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`), deploy do site (página + painel + `dbt docs`) no Pages, full-refresh semanal |
+| **GitHub Actions** | CI/CD | `dbt build` em PR (check obrigatório na `main`), deploy do site (página + painel + `dbt docs`) no Pages, full-refresh sob demanda |
 
 ---
 
@@ -134,20 +134,21 @@ Hoje: **20 models, 1 seed, 9 sources, 145 testes de dados** (genéricos + singul
   workflow roda em todo PR, mas o primeiro passo olha o diff: PR que não toca `dbt/**` sai verde em
   segundos sem acessar o Snowflake. Filtrar por `paths` no gatilho travaria o merge desses PRs — o
   check obrigatório nunca reportaria.
-- **Full-refresh semanal do incremental.** O merge de 3 dias não pega evento mais atrasado nem deleção
-  no RAW, então um job agendado recria `stg_marketing_click_events` e seus descendentes todo domingo. Ele
-  escreve nos schemas reais com usuário próprio (`DBT_PROD_USER`), e a credencial fica num environment
-  do GitHub liberado só para a `main` — um PR não consegue lê-la.
+- **Full-refresh periódico do incremental.** O merge de 3 dias não pega evento mais atrasado nem
+  deleção no RAW, então um job recria `stg_marketing_click_events` e seus descendentes. Ele escreve nos
+  schemas reais com usuário próprio (`DBT_PROD_USER`), e a credencial fica num environment do GitHub
+  liberado só para a `main` — um PR não consegue lê-la. Rodou todo domingo até o fechamento do projeto;
+  com a ingestão parada, o agendamento saiu (fica comentado no workflow) e o job roda sob demanda.
 - **Freshness das fontes, mesmo com a ingestão parada.** Teste de qualidade não pega dado velho — só o
   `dbt source freshness` olha o tempo. Salesforce é medido pela hora da extração do Airbyte
   (`_AIRBYTE_EXTRACTED_AT`), não pela modificação na origem: o patch manual de Leads mexeu no
   `SYSTEMMODSTAMP` e faria a fonte parecer fresca. Como a ingestão deste projeto foi encerrada de
-  propósito, o check roda no job semanal acusando `ERROR STALE` sem bloquear o full-refresh — numa
+  propósito, o check roda no job de full-refresh acusando `ERROR STALE` sem bloqueá-lo — numa
   ingestão viva, ele travaria o job.
 - **Painel lê o produto final, declarado como `exposure`.** As consultas do painel
   (`portfolio/queries/`) são agregação fina sobre os marts — regra de negócio nova iria para um model.
-  O deploy do site exporta os números com a credencial só leitura do CI e roda de novo depois do
-  full-refresh semanal; a `exposure` coloca o painel no fim da linhagem do dbt docs.
+  O deploy do site exporta os números com a credencial só leitura do CI e roda de novo depois de cada
+  full-refresh; a `exposure` coloca o painel no fim da linhagem do dbt docs.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:
@@ -218,7 +219,7 @@ Lista completa, com datas e comandos, no [`PLANO.md`](PLANO.md) (seções 5 e 7)
 │   ├── seeds/staging/          # industry_mapping.csv
 │   ├── tests/                  # testes singulares
 │   └── macros/                 # generate_schema_name, drop_ci_schemas
-├── .github/workflows/          # CI em PR, deploy do site, full-refresh semanal
+├── .github/workflows/          # CI em PR, deploy do site, full-refresh
 └── docs/img/                   # prints da configuração do Airbyte
 ```
 
@@ -239,9 +240,17 @@ dbt docs generate && dbt docs serve
 
 ---
 
-## Próximos passos
+## Status
+
+Projeto encerrado em 28/out/2026, com as Fases 0 a 4 concluídas. A ingestão foi parada de propósito
+(Airbyte encerrado, marketing em carga única), então o painel mostra um snapshot fixo dos marts e o
+full-refresh não roda mais sozinho.
+
+## Próximos passos (se o projeto voltar)
 
 - **Histórico de estágios:** extrair `OpportunityHistory` para medir conversão entre estágios — hoje o
   funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
-- **Manutenção:** subir `actions/checkout` e `actions/setup-python` nos workflows (aviso de
-  depreciação do Node 20).
+- **Manutenção:** subir `actions/checkout`, `actions/setup-python` e `upload-pages-artifact` nos
+  workflows (aviso de depreciação do Node 20).
+- **Ingestão viva:** religar o agendamento do full-refresh e tirar o `continue-on-error` do freshness,
+  para o job falhar e notificar quando uma fonte parar.
