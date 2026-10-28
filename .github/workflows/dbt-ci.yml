@@ -1,0 +1,47 @@
+name: dbt CI
+
+on:
+  pull_request:
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-ci.yml"
+  workflow_dispatch:
+
+# um push novo no mesmo PR cancela a execução anterior (não gasta warehouse à toa)
+concurrency:
+  group: dbt-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_CI_USER }}
+      SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_CI_PRIVATE_KEY }}
+      DBT_CI_SCHEMA_PREFIX: CI_PR${{ github.event.pull_request.number || github.run_id }}
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/ci
+    defaults:
+      run:
+        working-directory: dbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instala dbt
+        run: pip install dbt-core==1.12.5 dbt-snowflake==1.12.1
+
+      - name: Valida conexão
+        run: dbt debug
+
+      - name: dbt build (schemas CI_PR*)
+        run: dbt build
+
+      # roda mesmo se o build falhar, para não deixar schema órfão no Snowflake
+      - name: Remove os schemas do PR
+        if: always()
+        run: dbt run-operation drop_ci_schemas
