@@ -1,0 +1,13 @@
+crm_lakehouse:
+  target: ci
+  outputs:
+    ci:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY') }}"
+      role: DBT_CI_ROLE
+      database: CRM_LAKEHOUSE
+      warehouse: CRM_LAKEHOUSE_WH
+      schema: STAGING
+      threads: 4

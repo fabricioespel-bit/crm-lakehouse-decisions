@@ -362,6 +362,9 @@ CI/CD: GitHub Actions dispara `dbt build` + `dbt test` a cada push/PR que toque 
     - [x] Model incremental (28/out/2026) — `stg_marketing_click_events` (ver seção 7).
 - **Fase 3 — CI/CD:** pipeline GitHub Actions (`dbt build`/`dbt test` em PR); autenticação via key-pair;
   `dbt docs generate` publicado via GitHub Pages.
+  - [x] CI em PR (28/out/2026) — `.github/workflows/dbt-ci.yml`, schemas `CI_PR<n>_*` isolados,
+    `DBT_CI_USER`/`DBT_CI_ROLE` dedicados (ver seção 7).
+  - [ ] `dbt docs` no GitHub Pages.
 - **Fase 4 (stretch, opcional):** avaliar se vale expor alguma forma de consumo (ex.: descrições de
   tabela/coluna pensadas pra consumo por agente de IA, no mesmo espírito do `data-lake-engineering-decisions`)
   — só entra se sobrar tempo dentro da janela do trial, não é objetivo central do projeto.
@@ -896,3 +899,30 @@ silêncio — ele fica view.
   validação foi feita por contagem na tabela, não por esse número.
 
 Próximo: Fase 3, passo 2 — CI no GitHub Actions (`dbt build` em PR, key-pair via secrets).
+
+**28/out/2026 — Fase 3, passo 2: CI no GitHub Actions.** Duas decisões (Fabricio):
+- **Isolamento por schema de PR:** o `generate_schema_name` grava sempre nos schemas finais, então um
+  `dbt build` em PR sobrescreveria os objetos de verdade com código não revisado. O macro ganhou um
+  prefixo só quando `target.name == 'ci'` (`CI_PR<n>_STAGING`/`_INTERMEDIATE`/`_MARTS`); os sources já
+  apontam fixo para `CRM_LAKEHOUSE.RAW`, então o CI lê os dados reais sem clone. Novo macro
+  `drop_ci_schemas` (passo `if: always()`, recusa rodar fora do target `ci`; filtra com `startswith` e
+  não `like`, porque no `like` o `_` é curinga e `CI_PR12_` casaria com `CI_PR120_`). Database clonado
+  foi a alternativa descartada (mais peças: renovar o clone, tirar o database fixo dos sources).
+- **Credencial dedicada:** `DBT_CI_USER` (`type = service`, key-pair própria em
+  `~/.snowflake_keys/dbt_ci_rsa_key.p8`) com `DBT_CI_ROLE`: `usage` no warehouse/database, `create
+  schema` no database, `select` em todas as tabelas (e futuras) do `RAW` — **sem escrita** em
+  `STAGING`/`INTERMEDIATE`/`MARTS`. Secrets no GitHub: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_CI_USER`,
+  `SNOWFLAKE_CI_PRIVATE_KEY`. Mesmo warehouse, então o resource monitor também limita o CI.
+- **Workflow:** `pull_request` em `dbt/**` + `workflow_dispatch`; `concurrency` cancela execução anterior
+  do mesmo PR; Python 3.12 e só `dbt-core==1.12.5` + `dbt-snowflake==1.12.1` (o `requirements.txt` traz
+  snowflake-cli, Faker etc.); profile versionado em `dbt/ci/profiles.yml`, todo via `env_var` (a chave
+  PEM inteira vai no `private_key`). PR de fork não recebe secrets.
+- **Pegadinhas:** (1) o usuário foi criado com `rsa_public_key = ''` porque o par de chaves ainda não
+  tinha sido gerado e o `&&` não barrou — num pipe (`grep | tr`) o código de saída é o do último
+  comando; corrigido com `alter user` guardado por `test -s` e checagem de tamanho da chave;
+  (2) `gh pr checks --watch` logo depois do `gh pr create` responde `no checks reported` (o job ainda não
+  registrou) — basta rodar de novo.
+- **Resultado:** PR #1, job `dbt-build` verde em 1m08s: `dbt debug` OK, `dbt build` **PASS=161 WARN=5
+  ERROR=0** (os 5 warns são a sujeira proposital conhecida), 3 schemas `CI_PR1_*` removidos no fim.
+
+Próximo: Fase 3, passo 3 — `dbt docs` no GitHub Pages (deploy no push para `main`).

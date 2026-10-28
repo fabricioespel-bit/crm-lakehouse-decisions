@@ -45,7 +45,7 @@ flowchart TD
 | **STAGING** | 1:1 com a fonte: tipos, snake_case, `not ISDELETED`, de-para de picklist | ✅ 8 models |
 | **INTERMEDIATE** | Regras de negócio: dedup de Accounts, stitching marketing ↔ Lead | ✅ dedup + stitching (4 models) |
 | **MARTS** | Funil (win rate, ciclo), ROAS com atribuição explícita | ✅ atribuição first/last/linear, CPL/ROAS por campanha, funil por origem |
-| **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | ⏳ |
+| **CI/CD + docs** | GitHub Actions + `dbt docs` publicado | 🟡 CI em PR (schemas isolados por PR) pronto; docs em andamento |
 
 Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singulares), todos passando
 (alguns em `warn` por design — ver abaixo).
@@ -118,6 +118,11 @@ Hoje: **10 models, 1 seed, 8 sources, 69 testes de dados** (genéricos + singula
   reprocessa os últimos 3 dias para evento atrasado — testado com cliques fictícios no RAW). O
   `int_marketing_touches`, que parece o candidato óbvio, continua view: uma conversão nova reclassifica
   cliques antigos, e um incremental por janela de data os deixaria errados em silêncio.
+- **CI isolado por PR.** Cada PR roda `dbt build` completo em schemas próprios (`CI_PR<n>_*`, via
+  prefixo no `generate_schema_name` só no target `ci`), lendo o `RAW` real, e os schemas são apagados
+  no fim mesmo se o build falhar. O CI autentica com usuário e role dedicados (`DBT_CI_USER` /
+  `DBT_CI_ROLE`, key-pair própria) que não têm escrita nos schemas de verdade — um secret vazado não
+  alcança os dados publicados.
 
 ### Qualidade de dado: testar, não esconder
 A sujeira é proposital e cada caso tem um tratamento explícito:
@@ -208,5 +213,5 @@ dbt docs generate && dbt docs serve
 
 - **Histórico de estágios:** extrair `OpportunityHistory` para medir conversão entre estágios — hoje o
   funil só tem o estágio atual (win rate sobre as fechadas, ciclo e pipeline por origem).
-- **Fase 3 — CI/CD:** GitHub Actions rodando `dbt build` em PR (key-pair via secrets),
-  `dbt source freshness` a partir de `_AIRBYTE_EXTRACTED_AT`, `dbt docs` publicado no GitHub Pages.
+- **Fase 3 — CD e docs:** `dbt docs` publicado no GitHub Pages no push para `main`; `dbt source
+  freshness` a partir de `_AIRBYTE_EXTRACTED_AT`; `--full-refresh` periódico do model incremental.
